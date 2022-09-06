@@ -2,8 +2,20 @@
 
 C compiler scratched in Rust.
 
-## docker 開発環境起動
+### build
 
 ```
-docker run --rm -v $PWD:/dcc -w /dcc -it dcc
+make
+```
+
+### test
+
+```
+make test
+```
+
+### clean
+
+```
+make clean
 ```

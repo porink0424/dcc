@@ -3,9 +3,10 @@ assert() {
     expected="$1"
     input="$2"
 
-    ./dcc "$input" > tmp.s
-    cc -o tmp tmp.s
-    ./tmp
+    ./target/debug/dcc "$input" > tmp.s
+    docker run --rm -v $(cd $(dirname $0) && pwd):/dcc -w /dcc dcc cc -o tmp tmp.s
+    docker run --rm -v $(cd $(dirname $0) && pwd):/dcc -w /dcc dcc ./tmp
+
     actual="$?"
 
     if [ "$actual" = "$expected" ]; then
@@ -18,11 +19,5 @@ assert() {
 
 assert 0 0
 assert 42 42
-assert 21 "5+20-4"
-assert 41 " 12 + 34 - 5 "
-assert 22 " 12                   - 34  +   44 "
-assert 47 '5+6*7'
-assert 15 '5*(9-6)'
-assert 4 '(3+5)/2'
 
 echo OK
