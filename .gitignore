@@ -1,5 +1,2 @@
-*~
-*.o
-tmp*
-a.out
-dcc
+/target
+Cargo.lock
