@@ -69,7 +69,7 @@ impl TokenList {
                 continue;
             }
 
-            error("tokenizeできません");
+            error(idx, "tokenizeできません", p);
         }
 
         token_list.append_new_token(TokenKind::TKEOF, idx, None);
@@ -95,7 +95,11 @@ impl TokenList {
     fn expect(&mut self, op: char) {
         let now_token = self.get_now_token();
         if now_token.kind != TokenKind::TKReserved || self.input[now_token.input_idx] != op {
-            error(format!("'{}'ではありません", op).as_str());
+            error(
+                now_token.input_idx,
+                format!("'{}'ではありません", op).as_str(),
+                &self.input,
+            );
         } else {
             self.now += 1;
         }
@@ -105,7 +109,7 @@ impl TokenList {
     fn expect_number(&mut self) -> Option<isize> {
         let now_token = self.get_now_token();
         if now_token.kind != TokenKind::TKNum {
-            error("数ではありません");
+            error(now_token.input_idx, "数ではありません", &self.input);
         }
         let val = now_token.val;
         self.now += 1;
@@ -127,8 +131,11 @@ impl TokenList {
 }
 
 // エラー報告用の関数
-fn error(fmt: &str) {
-    println!("{}", fmt);
+fn error(loc: usize, fmt: &str, p: &Vec<char>) {
+    eprintln!("{}", p.iter().collect::<String>());
+    eprintln!("{}^", " ".to_string().repeat(loc));
+    eprintln!("{}", fmt);
+
     std::process::exit(1);
 }
 
@@ -136,7 +143,7 @@ fn main() {
     let args = env::args().collect::<Vec<String>>();
 
     if args.len() != 2 {
-        error("引数の個数が正しくありません");
+        eprintln!("引数の個数が正しくありません");
     }
 
     let mut token_list = TokenList::tokenize(&args[1].chars().collect());
