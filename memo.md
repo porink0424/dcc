@@ -49,3 +49,7 @@ book に従う
 `docker run --rm -v $PWD:/dcc -w /dcc -it dcc`
 
 ↑ 毎回これを打とう！！
+
+## 文字列まわりむずいな
+
+`String`と`Vec<char>`とか同じに見える
