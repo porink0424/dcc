@@ -13,24 +13,26 @@ enum TokenKind {
 struct Token {
     kind: TokenKind,
     val: Option<isize>,
-    str: Vec<char>,
+    input_idx: usize, // このTokenがはじまる部分のinputされた文字列のindex
 }
 #[derive(Debug)]
 struct TokenList {
     now: usize, // 今着目しているトークンのindex
+    input: Vec<char>,
     tokens: Vec<Token>,
 }
 
 impl TokenList {
-    fn new() -> Self {
+    fn new(p: &Vec<char>) -> Self {
         TokenList {
             now: 0,
+            input: p.clone(),
             tokens: vec![],
         }
     }
 
     fn tokenize(p: &Vec<char>) -> Self {
-        let mut token_list = Self::new();
+        let mut token_list = Self::new(p);
 
         let mut idx = 0;
         while idx < p.len() {
@@ -41,7 +43,7 @@ impl TokenList {
             }
 
             if p[idx] == '+' || p[idx] == '-' {
-                token_list.append_new_token(TokenKind::TKReserved, vec![p[idx]], None);
+                token_list.append_new_token(TokenKind::TKReserved, idx, None);
                 idx += 1;
                 continue;
             }
@@ -54,7 +56,7 @@ impl TokenList {
                 }
                 token_list.append_new_token(
                     TokenKind::TKNum,
-                    p[idx..digit_idx].to_vec(),
+                    idx,
                     Some(
                         p[idx..digit_idx]
                             .iter()
@@ -70,7 +72,7 @@ impl TokenList {
             error("tokenizeできません");
         }
 
-        token_list.append_new_token(TokenKind::TKEOF, vec![], None);
+        token_list.append_new_token(TokenKind::TKEOF, idx, None);
         token_list
     }
 
@@ -81,7 +83,7 @@ impl TokenList {
     // 次のトークンが期待している記号だったときには、トークンを1つ読み進めてtrueを返す。それ以外はfalseを返す。
     fn consume(&mut self, op: char) -> bool {
         let now_token = self.get_now_token();
-        if now_token.kind != TokenKind::TKReserved || now_token.str[0] != op {
+        if now_token.kind != TokenKind::TKReserved || self.input[now_token.input_idx] != op {
             return false;
         } else {
             self.now += 1;
@@ -92,7 +94,7 @@ impl TokenList {
     // 次のトークンが期待している記号だったときには、トークンを1つ読み進める。それ以外はエラーになる。
     fn expect(&mut self, op: char) {
         let now_token = self.get_now_token();
-        if now_token.kind != TokenKind::TKReserved || now_token.str[0] != op {
+        if now_token.kind != TokenKind::TKReserved || self.input[now_token.input_idx] != op {
             error(format!("'{}'ではありません", op).as_str());
         } else {
             self.now += 1;
@@ -115,11 +117,11 @@ impl TokenList {
         now_token.kind == TokenKind::TKEOF
     }
 
-    fn append_new_token(&mut self, kind: TokenKind, str: Vec<char>, val: Option<isize>) {
+    fn append_new_token(&mut self, kind: TokenKind, input_idx: usize, val: Option<isize>) {
         self.tokens.push(Token {
             kind,
             val: if let Some(_) = val { val } else { None },
-            str,
+            input_idx,
         })
     }
 }
