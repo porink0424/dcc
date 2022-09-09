@@ -53,3 +53,7 @@ book に従う
 ## 文字列まわりむずいな
 
 `String`と`Vec<char>`とか同じに見える
+
+## モジュール分割が素晴らしくわかりやすくまとまっているサイト
+
+https://www.sheshbabu.com/posts/rust-module-system/
