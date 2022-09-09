@@ -2,6 +2,8 @@
 
 C compiler scratched in Rust.
 
+ref: https://www.sigbus.info/compilerbook
+
 ### build
 
 ```

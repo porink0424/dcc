@@ -3,11 +3,10 @@ use std::env;
 // トークンの種類
 #[derive(PartialEq, Debug)]
 enum TokenKind {
-    TKReserved,
-    TKNum,
-    TKEOF,
+    Reserved,
+    Num,
+    EOF,
 }
-
 // トークン型
 #[derive(Debug)]
 struct Token {
@@ -20,6 +19,28 @@ struct TokenList {
     now: usize, // 今着目しているトークンのindex
     input: Vec<char>,
     tokens: Vec<Token>,
+}
+
+// ノードの種類
+#[derive(PartialEq, Debug)]
+enum NodeKind {
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    NUM,
+}
+// ノード型
+#[derive(Debug)]
+struct Node {
+    kind: NodeKind,
+    lhs: Option<usize>, // 左辺のノードのindex
+    rhs: Option<usize>, // 左辺のノードのindex
+    val: Option<isize>, // kindがNUMの時のみ利用
+}
+#[derive(Debug)]
+struct NodeList {
+    nodes: Vec<Node>,
 }
 
 impl TokenList {
@@ -42,8 +63,8 @@ impl TokenList {
                 continue;
             }
 
-            if p[idx] == '+' || p[idx] == '-' {
-                token_list.append_new_token(TokenKind::TKReserved, idx, None);
+            if "+-*/()".chars().any(|c| c == p[idx]) {
+                token_list.append_new_token(TokenKind::Reserved, idx, None);
                 idx += 1;
                 continue;
             }
@@ -55,7 +76,7 @@ impl TokenList {
                     digit_idx += 1;
                 }
                 token_list.append_new_token(
-                    TokenKind::TKNum,
+                    TokenKind::Num,
                     idx,
                     Some(
                         p[idx..digit_idx]
@@ -72,7 +93,7 @@ impl TokenList {
             error(idx, "tokenizeできません", p);
         }
 
-        token_list.append_new_token(TokenKind::TKEOF, idx, None);
+        token_list.append_new_token(TokenKind::EOF, idx, None);
         token_list
     }
 
@@ -83,7 +104,7 @@ impl TokenList {
     // 次のトークンが期待している記号だったときには、トークンを1つ読み進めてtrueを返す。それ以外はfalseを返す。
     fn consume(&mut self, op: char) -> bool {
         let now_token = self.get_now_token();
-        if now_token.kind != TokenKind::TKReserved || self.input[now_token.input_idx] != op {
+        if now_token.kind != TokenKind::Reserved || self.input[now_token.input_idx] != op {
             return false;
         } else {
             self.now += 1;
@@ -94,7 +115,7 @@ impl TokenList {
     // 次のトークンが期待している記号だったときには、トークンを1つ読み進める。それ以外はエラーになる。
     fn expect(&mut self, op: char) {
         let now_token = self.get_now_token();
-        if now_token.kind != TokenKind::TKReserved || self.input[now_token.input_idx] != op {
+        if now_token.kind != TokenKind::Reserved || self.input[now_token.input_idx] != op {
             error(
                 now_token.input_idx,
                 format!("'{}'ではありません", op).as_str(),
@@ -108,7 +129,7 @@ impl TokenList {
     // 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。それ以外はエラーになる。
     fn expect_number(&mut self) -> Option<isize> {
         let now_token = self.get_now_token();
-        if now_token.kind != TokenKind::TKNum {
+        if now_token.kind != TokenKind::Num {
             error(now_token.input_idx, "数ではありません", &self.input);
         }
         let val = now_token.val;
@@ -118,7 +139,7 @@ impl TokenList {
 
     fn at_eof(&self) -> bool {
         let now_token = self.get_now_token();
-        now_token.kind == TokenKind::TKEOF
+        now_token.kind == TokenKind::EOF
     }
 
     fn append_new_token(&mut self, kind: TokenKind, input_idx: usize, val: Option<isize>) {
@@ -127,6 +148,90 @@ impl TokenList {
             val: if let Some(_) = val { val } else { None },
             input_idx,
         })
+    }
+}
+
+impl NodeList {
+    fn new() -> Self {
+        NodeList { nodes: vec![] }
+    }
+
+    // 新しいノードを作成し、そのindexを返す
+    fn append_new_node(&mut self, kind: NodeKind, lhs: usize, rhs: usize) -> usize {
+        let new_idx = self.nodes.len();
+        self.nodes.push(Node {
+            kind,
+            lhs: Some(lhs),
+            rhs: Some(rhs),
+            val: None,
+        });
+        new_idx
+    }
+
+    // 新しい数字ノードを作成し、そのindexを返す
+    fn append_new_node_num(&mut self, val: Option<isize>, token_list: &TokenList) -> usize {
+        if let None = val {
+            error(
+                token_list.tokens[token_list.now].input_idx,
+                "数ではありません",
+                &token_list.input,
+            );
+        }
+        let new_idx = self.nodes.len();
+        self.nodes.push(Node {
+            kind: NodeKind::NUM,
+            lhs: None,
+            rhs: None,
+            val,
+        });
+        new_idx
+    }
+
+    // expr    = mul ("+" mul | "-" mul)*
+    fn expr(&mut self, token_list: &mut TokenList) -> usize {
+        let mut idx = self.mul(token_list);
+
+        loop {
+            if token_list.consume('+') {
+                let rhs = self.mul(token_list);
+                idx = self.append_new_node(NodeKind::ADD, idx, rhs);
+            } else if token_list.consume('-') {
+                let rhs = self.mul(token_list);
+                idx = self.append_new_node(NodeKind::SUB, idx, rhs);
+            } else {
+                return idx;
+            }
+        }
+    }
+
+    // mul     = primary ("*" primary | "/" primary)*
+    fn mul(&mut self, token_list: &mut TokenList) -> usize {
+        let mut idx = self.primary(token_list);
+
+        loop {
+            if token_list.consume('*') {
+                let rhs = self.primary(token_list);
+                idx = self.append_new_node(NodeKind::MUL, idx, rhs);
+            } else if token_list.consume('/') {
+                let rhs = self.primary(token_list);
+                idx = self.append_new_node(NodeKind::DIV, idx, rhs);
+            } else {
+                return idx;
+            }
+        }
+    }
+
+    // primary = num | "(" expr ")"
+    fn primary(&mut self, token_list: &mut TokenList) -> usize {
+        if token_list.consume('(') {
+            // 次のトークンが'('なら'(expr)'なはず
+            let idx = self.expr(token_list);
+            token_list.expect(')');
+            idx
+        } else {
+            // そうでなければ数値なはず
+            self.append_new_node_num(token_list.expect_number(), token_list)
+        }
     }
 }
 
@@ -148,25 +253,30 @@ fn main() {
 
     let mut token_list = TokenList::tokenize(&args[1].chars().collect());
 
-    // アセンブリの前半部分を出力
-    println!(".intel_syntax noprefix");
-    println!(".global main");
-    println!("main:");
+    let mut node_list = NodeList::new();
+    let root = node_list.expr(&mut token_list);
 
-    // 式の最初は数字
-    println!("  mov rax, {}", token_list.expect_number().unwrap());
+    println!("{} {:?}", root, node_list);
 
-    // + 数字、もしくは - 数字という並びをひたすら消費していく
-    while !token_list.at_eof() {
-        if token_list.consume('+') {
-            println!("  add rax, {}", token_list.expect_number().unwrap());
-            continue;
-        }
+    // // アセンブリの前半部分を出力
+    // println!(".intel_syntax noprefix");
+    // println!(".global main");
+    // println!("main:");
 
-        // '+'ではなかったので'-'が必ずくるはず
-        token_list.expect('-');
-        println!("  sub rax, {}", token_list.expect_number().unwrap());
-    }
+    // // 式の最初は数字
+    // println!("  mov rax, {}", token_list.expect_number().unwrap());
 
-    println!("  ret");
+    // // + 数字、もしくは - 数字という並びをひたすら消費していく
+    // while !token_list.at_eof() {
+    //     if token_list.consume('+') {
+    //         println!("  add rax, {}", token_list.expect_number().unwrap());
+    //         continue;
+    //     }
+
+    //     // '+'ではなかったので'-'が必ずくるはず
+    //     token_list.expect('-');
+    //     println!("  sub rax, {}", token_list.expect_number().unwrap());
+    // }
+
+    // println!("  ret");
 }
