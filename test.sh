@@ -27,6 +27,9 @@ assert 15 '5*(9-6)'
 assert 4 '(3+5)/2'
 assert 10 '-10+20'
 assert 1 '-5--6' 
-assert 19 '-5-+6+30' 
+assert 19 '-5-+6+30'
+assert 1 '(4 == 2) + (3 < 5)'
+assert 1 '6 >= 2'
+assert 1 '6 != 2'
 
 echo "test finished successfully."
