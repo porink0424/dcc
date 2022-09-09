@@ -1,4 +1,9 @@
+# 実行ファイル
 /target*
+
+# 自動生成されるファイル
 Cargo.lock
 tmp*
+
+# IDE
 .vscode
