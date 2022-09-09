@@ -204,20 +204,34 @@ impl NodeList {
         }
     }
 
-    // mul     = primary ("*" primary | "/" primary)*
+    // mul     = unary ("*" unary | "/" unary)*
     fn mul(&mut self, token_list: &mut TokenList) -> usize {
-        let mut idx = self.primary(token_list);
+        let mut idx = self.unary(token_list);
 
         loop {
             if token_list.consume('*') {
-                let rhs = self.primary(token_list);
+                let rhs = self.unary(token_list);
                 idx = self.append_new_node(NodeKind::MUL, idx, rhs);
             } else if token_list.consume('/') {
-                let rhs = self.primary(token_list);
+                let rhs = self.unary(token_list);
                 idx = self.append_new_node(NodeKind::DIV, idx, rhs);
             } else {
                 return idx;
             }
+        }
+    }
+
+    // unary   = ("+" | "-")? primary
+    fn unary(&mut self, token_list: &mut TokenList) -> usize {
+        if token_list.consume('+') {
+            self.primary(token_list)
+        } else if token_list.consume('-') {
+            // -nは0-nに置き換える
+            let zero = self.append_new_node_num(Some(0), token_list);
+            let rhs = self.primary(token_list);
+            self.append_new_node(NodeKind::SUB, zero, rhs)
+        } else {
+            self.primary(token_list)
         }
     }
 
