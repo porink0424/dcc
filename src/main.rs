@@ -137,10 +137,10 @@ impl TokenList {
         val
     }
 
-    fn at_eof(&self) -> bool {
-        let now_token = self.get_now_token();
-        now_token.kind == TokenKind::EOF
-    }
+    // fn at_eof(&self) -> bool {
+    //     let now_token = self.get_now_token();
+    //     now_token.kind == TokenKind::EOF
+    // }
 
     fn append_new_token(&mut self, kind: TokenKind, input_idx: usize, val: Option<isize>) {
         self.tokens.push(Token {
@@ -244,39 +244,67 @@ fn error(loc: usize, fmt: &str, p: &Vec<char>) {
     std::process::exit(1);
 }
 
+// NodeListからスタックマシンをemulateする形でアセンブリを出力する
+fn gen(now: usize, node_list: &NodeList) {
+    let now_node = &node_list.nodes[now];
+
+    if now_node.kind == NodeKind::NUM {
+        println!("  push {}", now_node.val.unwrap());
+        return;
+    }
+
+    gen(now_node.lhs.unwrap(), node_list);
+    gen(now_node.rhs.unwrap(), node_list);
+
+    println!("  pop rdi");
+    println!("  pop rax");
+
+    match now_node.kind {
+        NodeKind::ADD => {
+            println!("  add rax, rdi");
+        }
+        NodeKind::SUB => {
+            println!("  sub rax, rdi");
+        }
+        NodeKind::MUL => {
+            println!("  imul rax, rdi");
+        }
+        NodeKind::DIV => {
+            println!("  cqo");
+            println!("  idiv rdi");
+        }
+        _ => {
+            panic!("unreachable");
+        }
+    }
+
+    println!("  push rax");
+}
+
 fn main() {
     let args = env::args().collect::<Vec<String>>();
 
     if args.len() != 2 {
         eprintln!("引数の個数が正しくありません");
+        std::process::exit(1);
     }
 
+    // 字句解析
     let mut token_list = TokenList::tokenize(&args[1].chars().collect());
 
+    // 構文解析
     let mut node_list = NodeList::new();
     let root = node_list.expr(&mut token_list);
 
-    println!("{} {:?}", root, node_list);
+    // アセンブリの前半部分を出力
+    println!(".intel_syntax noprefix");
+    println!(".global main");
+    println!("main:");
 
-    // // アセンブリの前半部分を出力
-    // println!(".intel_syntax noprefix");
-    // println!(".global main");
-    // println!("main:");
+    // ASTをトップダウンに降りコード出力
+    gen(root, &node_list);
 
-    // // 式の最初は数字
-    // println!("  mov rax, {}", token_list.expect_number().unwrap());
-
-    // // + 数字、もしくは - 数字という並びをひたすら消費していく
-    // while !token_list.at_eof() {
-    //     if token_list.consume('+') {
-    //         println!("  add rax, {}", token_list.expect_number().unwrap());
-    //         continue;
-    //     }
-
-    //     // '+'ではなかったので'-'が必ずくるはず
-    //     token_list.expect('-');
-    //     println!("  sub rax, {}", token_list.expect_number().unwrap());
-    // }
-
-    // println!("  ret");
+    // スタックトップに残っている式の最終的な値をraxにロードして終了
+    println!("  pop rax");
+    println!("  ret");
 }
