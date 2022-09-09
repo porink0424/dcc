@@ -1,7 +1,3 @@
-# CFLAGS : Cコンパイルのオプションを指定
-# -std=c11 : 言語標準をc11としてコンパイル
-CFLAGS=-std=c11 -g -static
-
 dcc: 
 	cargo build
 
