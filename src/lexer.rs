@@ -3,8 +3,9 @@ use crate::error;
 // トークンの種類
 #[derive(PartialEq, Debug)]
 pub enum TokenKind {
-    Reserved,
-    Num,
+    Reserved, // 記号
+    ID,       // 識別子
+    Num,      // 整数トークン
     EOF,
 }
 // トークン型
@@ -37,7 +38,7 @@ impl TokenList {
         let mut idx = 0;
         while idx < p.len() {
             // 空白文字はスキップ
-            if p[idx] == ' ' {
+            if " \n".chars().any(|c| c == p[idx]) {
                 idx += 1;
                 continue;
             }
@@ -54,8 +55,15 @@ impl TokenList {
             }
 
             // 1文字の記号
-            if "+-*/()<>".chars().any(|c| c == p[idx]) {
+            if "+-*/()<>=;".chars().any(|c| c == p[idx]) {
                 token_list.append_new_token(TokenKind::Reserved, idx, None, 1);
+                idx += 1;
+                continue;
+            }
+
+            // 1文字の小文字アルファベット
+            if matches!(p[idx], 'a'..='z') {
+                token_list.append_new_token(TokenKind::ID, idx, None, 1);
                 idx += 1;
                 continue;
             }
@@ -109,6 +117,17 @@ impl TokenList {
         }
     }
 
+    // 次のトークンがローカル変数の場合、トークンを1つ読み進めてそのローカル変数に対応するトークンとtrueを返す。それ以外はfalseを返す。
+    pub fn consume_ident(&mut self) -> (Option<&Token>, bool) {
+        let now_token = self.get_now_token();
+        if now_token.kind == TokenKind::ID {
+            self.now += 1;
+            return (Some(&(self.tokens[self.now - 1])), true);
+        } else {
+            return (None, false);
+        }
+    }
+
     // 次のトークンが期待している記号だったときには、トークンを1つ読み進める。それ以外はエラーになる。
     pub fn expect(&mut self, op: &str) {
         let now_token = self.get_now_token();
@@ -120,7 +139,7 @@ impl TokenList {
         {
             error::error(
                 now_token.input_idx,
-                format!("'{}'ではありません", op).as_str(),
+                format!("'{}'が期待されています", op).as_str(),
                 &self.input,
             );
         } else {
@@ -137,6 +156,11 @@ impl TokenList {
         let val = now_token.val;
         self.now += 1;
         val
+    }
+
+    pub fn at_eof(&self) -> bool {
+        let now_token = self.get_now_token();
+        now_token.kind == TokenKind::EOF
     }
 
     fn append_new_token(
