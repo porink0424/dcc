@@ -19,6 +19,14 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>) {
     let now_node = &node_list.nodes[now];
 
     match now_node.kind {
+        NodeKind::RETURN => {
+            gen(now_node.lhs.unwrap(), node_list, input);
+            println!("  pop rax");
+            println!("  mov rsp, rbp");
+            println!("  pop rbp");
+            println!("  ret");
+            return;
+        }
         NodeKind::NUM => {
             println!("  push {}", now_node.val.unwrap());
             return;

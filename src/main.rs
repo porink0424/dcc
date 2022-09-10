@@ -20,7 +20,7 @@ fn main() {
     let mut node_list = parser::NodeList::new();
     node_list.program(&mut token_list);
     // println!("{:#?}", node_list);
-    println!("{:#?}", node_list.lval_list);
+    // println!("{:#?}", node_list.lval_list);
 
     // アセンブリの前半部分を出力
     println!(".intel_syntax noprefix");

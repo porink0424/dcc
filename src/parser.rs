@@ -40,6 +40,7 @@ pub enum NodeKind {
     ASSIGN, // =
     LVAR,   // local int
     NUM,    // int
+    RETURN, // return
 }
 // ノード型
 #[derive(Debug)]
@@ -130,6 +131,20 @@ impl NodeList {
         new_idx
     }
 
+    // 新しいreturnノードを作成し、そのindexを返す
+    fn append_new_node_return(&mut self, input_idx: usize, lhs: Option<usize>) -> usize {
+        let new_idx = self.nodes.len();
+        self.nodes.push(Node {
+            kind: NodeKind::RETURN,
+            input_idx,
+            lhs,
+            rhs: None,
+            val: None,
+            offset: None,
+        });
+        new_idx
+    }
+
     // program    = stmt*
     pub fn program(&mut self, token_list: &mut TokenList) {
         while !token_list.at_eof() {
@@ -138,9 +153,16 @@ impl NodeList {
         }
     }
 
-    // stmt       = expr ";"
+    // stmt    = expr ";" | "return" expr ";"
     fn stmt(&mut self, token_list: &mut TokenList) -> usize {
-        let idx = self.expr(token_list);
+        let idx;
+        let input_idx = token_list.tokens[token_list.now].input_idx;
+        if token_list.consume_return() {
+            let lhs = self.expr(token_list);
+            idx = self.append_new_node_return(input_idx, Some(lhs));
+        } else {
+            idx = self.expr(token_list);
+        }
         token_list.expect(";");
         idx
     }

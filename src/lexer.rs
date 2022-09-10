@@ -6,6 +6,7 @@ pub enum TokenKind {
     Reserved, // 記号
     ID,       // 識別子
     Num,      // 整数トークン
+    Return,   // リターン
     EOF,
 }
 // トークン型
@@ -43,6 +44,22 @@ impl TokenList {
                 continue;
             }
 
+            // return
+            // return となっていて、かつその後にalnumが続かない
+            // 例えば、returnxはreturnトークンではなくIDトークンになる必要がある
+            if idx + 5 < p.len()
+                && p[idx..=(idx + 5)]
+                    .iter()
+                    .collect::<String>()
+                    .eq(&"return".to_string())
+                && (idx + 6 >= p.len()
+                    || !matches!(p[idx + 6], 'a'..='z' | 'A'..='Z' | '_' | '0'..='9'))
+            {
+                token_list.append_new_token(TokenKind::Return, idx, None, 6);
+                idx += 6;
+                continue;
+            }
+
             // 2文字の記号
             if idx + 1 < p.len()
                 && ["<=", ">=", "==", "!="]
@@ -61,11 +78,13 @@ impl TokenList {
                 continue;
             }
 
-            // 複数のアルファベットからなる識別子
-            if matches!(p[idx], 'a'..='z') {
+            // 複数の文字からなる識別子
+            if matches!(p[idx], 'a'..='z' | 'A'..='Z') {
                 // アルファベットが終わるところまでループ
                 let mut alpha_idx = idx + 1;
-                while alpha_idx < p.len() && matches!(p[alpha_idx], 'a'..='z') {
+                while alpha_idx < p.len()
+                    && matches!(p[alpha_idx], 'a'..='z' | 'A'..='Z' | '_' | '0'..='9')
+                {
                     alpha_idx += 1;
                 }
                 token_list.append_new_token(TokenKind::ID, idx, None, alpha_idx - idx);
@@ -115,10 +134,21 @@ impl TokenList {
                 .collect::<String>()
                 .eq(&op.to_string()))
         {
-            return false;
+            false
         } else {
             self.now += 1;
-            return true;
+            true
+        }
+    }
+
+    // 次のトークンがreturnの場合、トークンを1つ読み進めてtrueを返す。それ以外はfalseを返す。
+    pub fn consume_return(&mut self) -> bool {
+        let now_token = self.get_now_token();
+        if now_token.kind == TokenKind::Return {
+            self.now += 1;
+            true
+        } else {
+            false
         }
     }
 
@@ -127,9 +157,9 @@ impl TokenList {
         let now_token = self.get_now_token();
         if now_token.kind == TokenKind::ID {
             self.now += 1;
-            return (Some(&(self.tokens[self.now - 1])), true);
+            (Some(&(self.tokens[self.now - 1])), true)
         } else {
-            return (None, false);
+            (None, false)
         }
     }
 
