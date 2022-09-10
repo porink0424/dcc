@@ -1,5 +1,31 @@
 use crate::{error, lexer::TokenList};
 
+// ローカル変数の型
+#[derive(Debug)]
+struct LVar {
+    name: String,  // 名前の長さ
+    offset: usize, // RBPからのオフセット
+}
+#[derive(Debug)]
+pub struct LVarList {
+    lvars: Vec<LVar>,
+}
+impl LVarList {
+    fn new() -> Self {
+        LVarList { lvars: vec![] }
+    }
+
+    // 変数を名前で検索する。見つからなかった場合はfalseを返す
+    fn find_lvar(&self, name: &String) -> (Option<&LVar>, bool) {
+        for lvar in self.lvars.iter() {
+            if name.eq(&lvar.name) {
+                return (Some(lvar), true);
+            }
+        }
+        (None, false)
+    }
+}
+
 // ノードの種類
 #[derive(PartialEq, Debug)]
 pub enum NodeKind {
@@ -29,13 +55,14 @@ pub struct Node {
 pub struct NodeList {
     pub roots: Vec<usize>, // プログラムの中の各文のrootノードのindex
     pub nodes: Vec<Node>,
+    pub lval_list: LVarList,
 }
-
 impl NodeList {
     pub fn new() -> Self {
         NodeList {
             roots: vec![],
             nodes: vec![],
+            lval_list: LVarList::new(),
         }
     }
 
@@ -231,21 +258,30 @@ impl NodeList {
     fn primary(&mut self, token_list: &mut TokenList) -> usize {
         let input_idx = token_list.tokens[token_list.now].input_idx;
         if token_list.consume("(") {
-            // 次のトークンが'('なら'(expr)'なはず
+            // 次のトークンが'('なら'(expr)'
             let idx = self.expr(token_list);
             token_list.expect(")");
             idx
         } else if let (Some(token_ident), true) = token_list.consume_ident() {
             // ident
-            // 変数aなら RBP-8, bなら RBP-16のようにローカル変数は名前によって固定の位置のメモリに置く
             let token_ident_idx = token_ident.input_idx;
-            let var_name: char = token_list.input[token_ident_idx];
-            let var_name: u8 = (b'a'..b'z').find(|c| *c as char == var_name).unwrap();
-            self.append_new_node_lvar(
-                input_idx,
-                Some(usize::from(((var_name - b'a') + 1) * 8)),
-                token_list,
-            )
+            let token_ident_len = token_ident.len;
+            let var_name: String = token_list.input
+                [token_ident_idx..(token_ident_idx + token_ident_len)]
+                .iter()
+                .collect();
+            if let (Some(lvar), true) = self.lval_list.find_lvar(&var_name) {
+                // 今までに使われたことがある
+                self.append_new_node_lvar(input_idx, Some(lvar.offset), token_list)
+            } else {
+                // idx番目に新しいローカル変数を、lvar_listに登録する
+                let idx = self.lval_list.lvars.len();
+                self.lval_list.lvars.push(LVar {
+                    name: var_name,
+                    offset: (idx + 1) * 8,
+                });
+                self.append_new_node_lvar(input_idx, Some((idx + 1) * 8), token_list)
+            }
         } else {
             // num
             self.append_new_node_num(input_idx, token_list.expect_number(), token_list)

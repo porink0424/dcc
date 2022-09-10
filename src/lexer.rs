@@ -61,10 +61,15 @@ impl TokenList {
                 continue;
             }
 
-            // 1文字の小文字アルファベット
+            // 複数のアルファベットからなる識別子
             if matches!(p[idx], 'a'..='z') {
-                token_list.append_new_token(TokenKind::ID, idx, None, 1);
-                idx += 1;
+                // アルファベットが終わるところまでループ
+                let mut alpha_idx = idx + 1;
+                while alpha_idx < p.len() && matches!(p[alpha_idx], 'a'..='z') {
+                    alpha_idx += 1;
+                }
+                token_list.append_new_token(TokenKind::ID, idx, None, alpha_idx - idx);
+                idx = alpha_idx;
                 continue;
             }
 
