@@ -1,5 +1,10 @@
 #!/bin/bash
-echo "test started."
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+PURPLE='\033[0;35m'
+NC='\033[0m'
+
+echo -e "${PURPLE}test started.${NC}"
 echo
 
 assert() {
@@ -18,33 +23,26 @@ assert() {
         echo
     else
         echo "\`\`\`$input\`\`\`"
-        echo "=> $expected expected, but got $actual"
+        echo -e "${RED}=> $expected expected, but got $actual${NC}"
         echo
         exit 1
     fi
 }
 
-# assert 0 '0;'
-# assert 42 '42;'
-# assert 41 " 12 + 34 -   5 ;"
-# assert 47 '5+6*7;'
-# assert 15 '5*(9-6);'
-# assert 4 '(3+5)/2;'
-# assert 10 '-10+20;'
-# assert 1 '-5--6;' 
-# assert 19 '-5-+6+30;'
-# assert 1 '(4 == 2) + (3 < 5);'
-# assert 1 '6 >= 2;'
-# assert 1 '6 != 2;'
-# assert 4 '
-# a = 4;
-# a;
-# '
-# assert 14 '
-# a = 3;
-# b = 5 * 6 - 8;
-# a + b / 2;
-# '
+assert 42 '42;'
+assert 47 '5+6*7;'
+assert 15 '5*(9-6);'
+assert 4 '(3+5)/2;'
+assert 10 '-10+20;'
+assert 1 '-5--6;' 
+assert 19 '-5-+6+30;'
+assert 1 '(4 == 2) + (3 < 5);'
+assert 1 '6 >= 2;'
+assert 1 '6 != 2;'
+assert 4 '
+a = 4;
+a;
+'
 assert 6 '
 foo = 1;
 bar = 2 + 3;
@@ -65,4 +63,4 @@ return 5;
 return 8;
 '
 
-echo "test finished successfully."
+echo -e "${GREEN}test finished successfully.${NC}"
