@@ -20,7 +20,6 @@ fn main() {
     let mut node_list = parser::NodeList::new();
     node_list.program(&mut token_list);
     // println!("{:#?}", node_list);
-    // println!("{:#?}", node_list.lval_list);
 
     // アセンブリの前半部分を出力
     println!(".intel_syntax noprefix");
@@ -33,9 +32,10 @@ fn main() {
     println!("  sub rsp, 208");
 
     // ASTをトップダウンに降りコード出力
+    let mut counter = codegen::Counter::new();
     for root in node_list.roots.iter() {
-        codegen::gen(*root, &node_list, &token_list.input);
-        println!("  pop rax");
+        codegen::gen(*root, &node_list, &token_list.input, &mut counter);
+        println!("  pop rax"); // スタックがいっぱいにならないように毎回raxにpopする
     }
 
     // スタックトップに残っている式の最終的な値をraxにロードして終了

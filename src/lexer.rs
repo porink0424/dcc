@@ -6,6 +6,8 @@ pub enum TokenKind {
     Reserved, // 記号
     ID,       // 識別子
     Num,      // 整数トークン
+    If,       // if
+    Else,     // else
     Return,   // リターン
     EOF,
 }
@@ -33,30 +35,62 @@ impl TokenList {
         }
     }
 
+    // p[idx]からwordというトークンを作るべきか判定し、作るべきなときはtoken_listに足す。
+    // トークンを作った場合、Some(idx)、そうでない場合Noneを返す。
+    fn can_tokenize(
+        &mut self,
+        p: &Vec<char>,
+        idx: usize,
+        word: &String,
+        kind: TokenKind,
+    ) -> Option<usize> {
+        // 例えばword = returnのとき、
+        // returnとなっていて、かつその後にalnumが続かないならtrue
+        // returnxはreturnトークンではなくIDトークンになる必要があるのでfalse
+        let len = word.len();
+        if idx + (len - 1) < p.len()
+            && p[idx..(idx + len)].iter().collect::<String>().eq(word)
+            && (idx + len >= p.len()
+                || !matches!(p[idx + len], 'a'..='z' | 'A'..='Z' | '_' | '0'..='9'))
+        {
+            self.append_new_token(kind, idx, None, len);
+            Some(idx + len)
+        } else {
+            None
+        }
+    }
+
     pub fn tokenize(p: &Vec<char>) -> Self {
         let mut token_list = Self::new(p);
 
         let mut idx = 0;
         while idx < p.len() {
-            // 空白文字はスキップ
+            // 空白、改行文字はスキップ
             if " \n".chars().any(|c| c == p[idx]) {
                 idx += 1;
                 continue;
             }
 
-            // return
-            // return となっていて、かつその後にalnumが続かない
-            // 例えば、returnxはreturnトークンではなくIDトークンになる必要がある
-            if idx + 5 < p.len()
-                && p[idx..=(idx + 5)]
-                    .iter()
-                    .collect::<String>()
-                    .eq(&"return".to_string())
-                && (idx + 6 >= p.len()
-                    || !matches!(p[idx + 6], 'a'..='z' | 'A'..='Z' | '_' | '0'..='9'))
+            // if
+            if let Some(new_idx) = token_list.can_tokenize(p, idx, &"if".to_string(), TokenKind::If)
             {
-                token_list.append_new_token(TokenKind::Return, idx, None, 6);
-                idx += 6;
+                idx = new_idx;
+                continue;
+            }
+
+            // else
+            if let Some(new_idx) =
+                token_list.can_tokenize(p, idx, &"else".to_string(), TokenKind::Else)
+            {
+                idx = new_idx;
+                continue;
+            }
+
+            // return
+            if let Some(new_idx) =
+                token_list.can_tokenize(p, idx, &"return".to_string(), TokenKind::Return)
+            {
+                idx = new_idx;
                 continue;
             }
 
@@ -125,30 +159,32 @@ impl TokenList {
         &(self.tokens[self.now])
     }
 
-    // 次のトークンが期待している記号だったときには、トークンを1つ読み進めてtrueを返す。それ以外はfalseを返す。
-    pub fn consume(&mut self, op: &str) -> bool {
+    // 次のトークンが期待しているものだったときには、トークンを1つ読み進めてtrueを返す。それ以外はfalseを返す。
+    // opはkindがTokenKind::Reservedだったときに値を指定する。
+    pub fn consume(&mut self, kind: TokenKind, op: Option<&str>) -> bool {
         let now_token = self.get_now_token();
-        if now_token.kind != TokenKind::Reserved
-            || !(self.input[now_token.input_idx..(now_token.input_idx + now_token.len)]
-                .iter()
-                .collect::<String>()
-                .eq(&op.to_string()))
-        {
-            false
-        } else {
-            self.now += 1;
-            true
-        }
-    }
-
-    // 次のトークンがreturnの場合、トークンを1つ読み進めてtrueを返す。それ以外はfalseを返す。
-    pub fn consume_return(&mut self) -> bool {
-        let now_token = self.get_now_token();
-        if now_token.kind == TokenKind::Return {
-            self.now += 1;
-            true
-        } else {
-            false
+        match kind {
+            TokenKind::Reserved => {
+                if now_token.kind != TokenKind::Reserved
+                    || !(self.input[now_token.input_idx..(now_token.input_idx + now_token.len)]
+                        .iter()
+                        .collect::<String>()
+                        .eq(&op.unwrap().to_string()))
+                {
+                    false
+                } else {
+                    self.now += 1;
+                    true
+                }
+            }
+            _ => {
+                if now_token.kind != kind {
+                    false
+                } else {
+                    self.now += 1;
+                    true
+                }
+            }
         }
     }
 
@@ -163,22 +199,38 @@ impl TokenList {
         }
     }
 
-    // 次のトークンが期待している記号だったときには、トークンを1つ読み進める。それ以外はエラーになる。
-    pub fn expect(&mut self, op: &str) {
+    // 次のトークンが期待しているものだったときには、トークンを1つ読み進める。それ以外はエラーになる。
+    // opはkindがTokenKind::Reservedだったときに値を指定する。
+    pub fn expect(&mut self, kind: TokenKind, op: Option<&str>) {
         let now_token = self.get_now_token();
-        if now_token.kind != TokenKind::Reserved
-            || !(self.input[now_token.input_idx..(now_token.input_idx + now_token.len)]
-                .iter()
-                .collect::<String>()
-                .eq(&op.to_string()))
-        {
-            error::error(
-                now_token.input_idx,
-                format!("'{}'が期待されています", op).as_str(),
-                &self.input,
-            );
-        } else {
-            self.now += 1;
+        match kind {
+            TokenKind::Reserved => {
+                if now_token.kind != TokenKind::Reserved
+                    || !(self.input[now_token.input_idx..(now_token.input_idx + now_token.len)]
+                        .iter()
+                        .collect::<String>()
+                        .eq(&op.unwrap().to_string()))
+                {
+                    error::error(
+                        now_token.input_idx,
+                        format!("'{}'が期待されています", op.unwrap()).as_str(),
+                        &self.input,
+                    );
+                } else {
+                    self.now += 1;
+                }
+            }
+            _ => {
+                if now_token.kind != kind {
+                    error::error(
+                        now_token.input_idx,
+                        format!("'{:?}'が期待されています", kind).as_str(),
+                        &self.input,
+                    )
+                } else {
+                    self.now += 1;
+                }
+            }
         }
     }
 
