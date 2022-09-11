@@ -4,27 +4,33 @@ mod lexer;
 mod parser;
 use std::env;
 
+const RELEASE_MODE: bool = true;
+
 fn main() {
     // 実行時引数からプログラムを受け取る
     let args = env::args().collect::<Vec<String>>();
-    if args.len() != 2 {
-        eprintln!("引数の個数が正しくありません");
-        std::process::exit(1);
+    if RELEASE_MODE {
+        if args.len() != 2 {
+            eprintln!("引数の個数が正しくありません");
+            std::process::exit(1);
+        }
     }
 
     // 字句解析
-    let mut token_list = lexer::TokenList::tokenize(&args[1].chars().collect());
-    // let mut token_list = lexer::TokenList::tokenize(
-    //     &"sum = 0;i = 0;for (; i <= 10; i = i + 1)sum = sum + i;return sum;"
-    //         .chars()
-    //         .collect::<Vec<char>>(),
-    // );
-    // println!("{:#?}", token_list);
+    let mut token_list;
+    if RELEASE_MODE {
+        token_list = lexer::TokenList::tokenize(&args[1].chars().collect());
+    } else {
+        token_list = lexer::TokenList::tokenize(&"{1;3;}".chars().collect::<Vec<char>>());
+        // println!("{:#?}", token_list);
+    }
 
     // 構文解析
     let mut node_list = parser::NodeList::new();
     node_list.program(&mut token_list);
-    // println!("{:#?}", node_list);
+    if !RELEASE_MODE {
+        // println!("{:#?}", node_list);
+    }
 
     // アセンブリの前半部分を出力
     println!(".intel_syntax noprefix");

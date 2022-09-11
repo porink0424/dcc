@@ -51,6 +51,7 @@ pub enum NodeKind {
     For,   // for <- ForFstとForSndをそれぞれlhs, rhsに持つ
     ForFst,
     ForSnd,
+    Block, // { ... } <- lhsにはstmtからなるノードを、rhsには連続的にBlockノードを持つ
 }
 // ノード型
 #[derive(Debug)]
@@ -151,6 +152,7 @@ impl NodeList {
 
     /*
     stmt    = expr ";"
+            | "{" stmt* "}"
             | "if" "(" expr ")" stmt ("else" stmt)?
             | "while" "(" expr ")" stmt
             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
@@ -159,7 +161,28 @@ impl NodeList {
     fn stmt(&mut self, token_list: &mut TokenList) -> usize {
         let idx;
         let input_idx = token_list.tokens[token_list.now].input_idx;
-        if token_list.consume(TokenKind::Return, None) {
+        if token_list.consume(TokenKind::Reserved, Some("{")) {
+            // compound statement
+            let mut block_node_idx = self.append_new_node(
+                NodeKind::Block,
+                token_list.tokens[token_list.now].input_idx,
+                None,
+                None,
+            );
+            idx = block_node_idx; // 一番上のblockノードを最終的に返す
+            while !token_list.consume(TokenKind::Reserved, Some("}")) {
+                let lhs = self.stmt(token_list);
+                let prev_block_node_idx = block_node_idx;
+                block_node_idx = self.append_new_node(
+                    NodeKind::Block,
+                    token_list.tokens[token_list.now].input_idx,
+                    None,
+                    None,
+                );
+                self.nodes[prev_block_node_idx].lhs = Some(lhs);
+                self.nodes[prev_block_node_idx].rhs = Some(block_node_idx);
+            }
+        } else if token_list.consume(TokenKind::Return, None) {
             // return
             let lhs = self.expr(token_list);
             idx = self.append_new_node(NodeKind::Return, input_idx, Some(lhs), None);

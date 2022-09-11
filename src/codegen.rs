@@ -187,6 +187,18 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             println!("  push rdi"); // 代入した値をpushしておく
             return;
         }
+        NodeKind::Block => {
+            let mut node = now_node; // 一番最初のblockノード
+
+            // blockノードのlhsがNoneになるまでループ
+            while let Some(stmt) = node.lhs {
+                println!("  pop rax"); // 各1つのstmtは1つの値をスタックに残したままにしているので、stmtが続くときは前の値を取り出しておく
+                gen(stmt, node_list, input, counter);
+                node = &node_list.nodes[node.rhs.unwrap()]; // 次のblockノードをセット
+            }
+
+            return;
+        }
         _ => (),
     }
 
