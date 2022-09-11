@@ -5,6 +5,7 @@ YELLOW='\033[0;33m'
 PURPLE='\033[0;35m'
 NC='\033[0m'
 
+echo
 echo -e "${PURPLE}test started.${NC}"
 echo
 
@@ -78,11 +79,18 @@ assert() {
 # else
 #     0;
 # '
-assert 22 '
+# assert 22 '
+# sum = 0;
+# while (sum <= 20)
+#     sum = sum + 2;
+# sum;
+# '
+assert 55 '
 sum = 0;
-while (sum <= 20)
-    sum = sum + 2;
-sum;
+i = 0;
+for (; i <= 10; i = i + 1)
+    sum = sum + i;
+return sum;
 '
 
 echo -e "${GREEN}test finished successfully.${NC}"

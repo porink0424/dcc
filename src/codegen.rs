@@ -114,6 +114,51 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             println!(".Lend{}:", label_name);
             return;
         }
+        NodeKind::For => {
+            /*
+            for (A; B; C) D
+
+            A;
+            begin:
+            if (B == 0)
+                goto end;
+            D;
+            C;
+            goto begin;
+            end:
+            */
+            let label_name = counter.new_cnt();
+            let lhs = &node_list.nodes[now_node.lhs.unwrap()];
+            let rhs = &node_list.nodes[now_node.rhs.unwrap()];
+
+            // Aのコード出力
+            if let Some(a) = lhs.lhs {
+                gen(a, node_list, input, counter);
+            }
+
+            println!(".Lbegin{}:", label_name);
+
+            // Bのコード出力
+            if let Some(b) = lhs.rhs {
+                gen(b, node_list, input, counter);
+            }
+
+            println!("  pop rax");
+            println!("  cmp rax, 0");
+            println!("  je .Lend{}", label_name);
+
+            // Dのコード出力
+            gen(rhs.rhs.unwrap(), node_list, input, counter);
+
+            // Cのコード出力
+            if let Some(c) = rhs.lhs {
+                gen(c, node_list, input, counter);
+            }
+
+            println!("  jmp .Lbegin{}", label_name);
+            println!(".Lend{}:", label_name);
+            return;
+        }
         NodeKind::Return => {
             gen(now_node.lhs.unwrap(), node_list, input, counter);
             println!("  pop rax");

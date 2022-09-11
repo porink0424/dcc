@@ -44,10 +44,13 @@ pub enum NodeKind {
     Lvar,   // local int
     Num,    // int
     Return, // return
-    If,     // if <- IFFLAGとIFSTMTをそれぞれlhs, rhsに持つ
+    If,     // if <- IfFlagとIfStmtをそれぞれlhs, rhsに持つ
     IfFlag,
     IfStmt,
     While, // while <- flagとstmtをそれぞれlhs, rhsに持つ
+    For,   // for <- ForFstとForSndをそれぞれlhs, rhsに持つ
+    ForFst,
+    ForSnd,
 }
 // ノード型
 #[derive(Debug)]
@@ -87,7 +90,7 @@ impl NodeList {
             kind,
             input_idx,
             lhs: if let Some(_) = lhs { lhs } else { None },
-            rhs: if let Some(_) = lhs { rhs } else { None },
+            rhs: if let Some(_) = rhs { rhs } else { None },
             val: None,
             offset: None,
         });
@@ -185,11 +188,50 @@ impl NodeList {
             token_list.expect(TokenKind::Reserved, Some(")"));
             let stmt = self.stmt(token_list);
             idx = self.append_new_node(NodeKind::While, input_idx, Some(expr), Some(stmt));
+        } else if token_list.consume(TokenKind::For, None) {
+            // for
+            token_list.expect(TokenKind::Reserved, Some("("));
+            // '('
+            let forfst_lhs_input_idx = token_list.now;
+            let mut forfst_lhs = None;
+            let mut forfst_rhs = None;
+            let mut forsnd_lhs = None;
+            let forsnd_rhs;
+            // 1つ目のexpr
+            if !token_list.consume(TokenKind::Reserved, Some(";")) {
+                forfst_lhs = Some(self.expr(token_list));
+                token_list.consume(TokenKind::Reserved, Some(";"));
+            }
+            // 2つ目のexpr
+            if !token_list.consume(TokenKind::Reserved, Some(";")) {
+                forfst_rhs = Some(self.expr(token_list));
+                token_list.consume(TokenKind::Reserved, Some(";"));
+            }
+            // 2つめの';'
+            let forsnd_lhs_input_idx = token_list.now;
+            // 3つ目のexpr
+            if !token_list.consume(TokenKind::Reserved, Some(")")) {
+                forsnd_lhs = Some(self.expr(token_list));
+                token_list.consume(TokenKind::Reserved, Some(")"));
+            }
+            forsnd_rhs = Some(self.stmt(token_list));
+            let lhs = self.append_new_node(
+                NodeKind::ForFst,
+                forfst_lhs_input_idx,
+                forfst_lhs,
+                forfst_rhs,
+            );
+            let rhs = self.append_new_node(
+                NodeKind::ForSnd,
+                forsnd_lhs_input_idx,
+                forsnd_lhs,
+                forsnd_rhs,
+            );
+            idx = self.append_new_node(NodeKind::For, input_idx, Some(lhs), Some(rhs));
         } else {
             idx = self.expr(token_list);
             token_list.expect(TokenKind::Reserved, Some(";"));
         }
-
         idx
     }
 

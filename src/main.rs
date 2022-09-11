@@ -14,8 +14,11 @@ fn main() {
 
     // 字句解析
     let mut token_list = lexer::TokenList::tokenize(&args[1].chars().collect());
-    // let mut token_list =
-    //     lexer::TokenList::tokenize(&"if (1) 3; else 2; ;".chars().collect::<Vec<char>>());
+    // let mut token_list = lexer::TokenList::tokenize(
+    //     &"sum = 0;i = 0;for (; i <= 10; i = i + 1)sum = sum + i;return sum;"
+    //         .chars()
+    //         .collect::<Vec<char>>(),
+    // );
     // println!("{:#?}", token_list);
 
     // 構文解析

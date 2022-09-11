@@ -9,6 +9,7 @@ pub enum TokenKind {
     If,       // if
     Else,     // else
     While,    // while
+    For,      // for
     Return,   // リターン
     EOF,
 }
@@ -82,6 +83,14 @@ impl TokenList {
             // else
             if let Some(new_idx) =
                 token_list.can_tokenize(p, idx, &"else".to_string(), TokenKind::Else)
+            {
+                idx = new_idx;
+                continue;
+            }
+
+            // for
+            if let Some(new_idx) =
+                token_list.can_tokenize(p, idx, &"for".to_string(), TokenKind::For)
             {
                 idx = new_idx;
                 continue;
