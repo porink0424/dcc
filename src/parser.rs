@@ -52,16 +52,18 @@ pub enum NodeKind {
     ForFst,
     ForSnd,
     Block, // { ... } <- lhsにはstmtからなるノードを、rhsには連続的にBlockノードを持つ
+    App,   // 関数適用 <- lhsに関数名が入ったLvarを持つ
 }
 // ノード型
 #[derive(Debug)]
 pub struct Node {
     pub kind: NodeKind,
-    pub input_idx: usize,      // 入力のうち、このノードが始まる場所のindex
-    pub lhs: Option<usize>,    // 左辺のノードのindex
-    pub rhs: Option<usize>,    // 左辺のノードのindex
-    pub val: Option<isize>,    // kindがNUMの時のみ利用
+    pub input_idx: usize,         // 入力のうち、このノードが始まる場所のindex
+    pub lhs: Option<usize>,       // 左辺のノードのindex
+    pub rhs: Option<usize>,       // 左辺のノードのindex
+    pub val: Option<isize>,       // kindがNUMの時のみ利用
     pub offset: Option<usize>, // kindがLVARの時のみ利用。ローカル変数のベースポインタからのオフセットを表す。
+    pub var_name: Option<String>, // kindがLVARの時のみ利用。ローカル変数の名前を表す。
 }
 #[derive(Debug)]
 pub struct NodeList {
@@ -94,6 +96,7 @@ impl NodeList {
             rhs: if let Some(_) = rhs { rhs } else { None },
             val: None,
             offset: None,
+            var_name: None,
         });
         new_idx
     }
@@ -116,6 +119,7 @@ impl NodeList {
             rhs: None,
             val,
             offset: None,
+            var_name: None,
         });
         new_idx
     }
@@ -126,6 +130,7 @@ impl NodeList {
         input_idx: usize,
         offset: Option<usize>,
         token_list: &TokenList,
+        var_name: &String,
     ) -> usize {
         if let None = offset {
             error::error(input_idx, "ローカル変数ではありません", &token_list.input);
@@ -138,6 +143,7 @@ impl NodeList {
             rhs: None,
             val: None,
             offset,
+            var_name: Some(var_name.clone()),
         });
         new_idx
     }
@@ -367,7 +373,7 @@ impl NodeList {
         }
     }
 
-    // primary    = num | ident | "(" expr ")"
+    // primary    = num | ident ("(" ")")? | "(" expr ")"
     fn primary(&mut self, token_list: &mut TokenList) -> usize {
         let input_idx = token_list.tokens[token_list.now].input_idx;
         if token_list.consume(TokenKind::Reserved, Some("(")) {
@@ -383,18 +389,32 @@ impl NodeList {
                 [token_ident_idx..(token_ident_idx + token_ident_len)]
                 .iter()
                 .collect();
+            let mut ret;
             if let (Some(lvar), true) = self.lval_list.find_lvar(&var_name) {
                 // 今までに使われたことがある
-                self.append_new_node_lvar(input_idx, Some(lvar.offset), token_list)
+                ret = self.append_new_node_lvar(input_idx, Some(lvar.offset), token_list, &var_name)
             } else {
                 // idx番目に新しいローカル変数を、lvar_listに登録する
                 let idx = self.lval_list.lvars.len();
+                ret = self.append_new_node_lvar(
+                    input_idx,
+                    Some((idx + 1) * 8),
+                    token_list,
+                    &var_name,
+                );
                 self.lval_list.lvars.push(LVar {
                     name: var_name,
                     offset: (idx + 1) * 8,
                 });
-                self.append_new_node_lvar(input_idx, Some((idx + 1) * 8), token_list)
             }
+
+            if token_list.consume(TokenKind::Reserved, Some("(")) {
+                // 関数呼び出し
+                token_list.expect(TokenKind::Reserved, Some(")"));
+                ret = self.append_new_node(NodeKind::App, input_idx, Some(ret), None);
+            }
+
+            ret
         } else {
             // num
             self.append_new_node_num(input_idx, token_list.expect_number(), token_list)

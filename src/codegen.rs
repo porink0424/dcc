@@ -199,6 +199,13 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
 
             return;
         }
+        NodeKind::App => {
+            let lhs = &node_list.nodes[now_node.lhs.unwrap()];
+            println!("  call {}", lhs.var_name.as_ref().unwrap());
+
+            println!("  push 0"); // dummy
+            return;
+        }
         _ => (),
     }
 
