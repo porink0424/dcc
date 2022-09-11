@@ -14,6 +14,8 @@ fn main() {
 
     // 字句解析
     let mut token_list = lexer::TokenList::tokenize(&args[1].chars().collect());
+    // let mut token_list =
+    //     lexer::TokenList::tokenize(&"if (1) 3; else 2; ;".chars().collect::<Vec<char>>());
     // println!("{:#?}", token_list);
 
     // 構文解析

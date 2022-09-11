@@ -36,7 +36,6 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
     match now_node.kind {
         NodeKind::If => {
             /*
-
             if (A) B else C
 
             - if (A) B の場合
@@ -55,7 +54,6 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             els:
             C;
             end:
-
             */
             let label_name = counter.new_cnt();
             let lhs = &node_list.nodes[now_node.lhs.unwrap()];
@@ -90,6 +88,29 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
                 gen(rhs.rhs.unwrap(), node_list, input, counter);
             }
 
+            println!(".Lend{}:", label_name);
+            return;
+        }
+        NodeKind::While => {
+            /*
+            while (A) B
+
+            begin:
+            if (A == 0)
+                goto end;
+            B;
+            goto begin;
+            end:
+            */
+            let label_name = counter.new_cnt();
+
+            println!(".Lbegin{}:", label_name);
+            gen(now_node.lhs.unwrap(), node_list, input, counter); // Aのコード
+            println!("  pop rax");
+            println!("  cmp rax, 0");
+            println!("  je .Lend{}", label_name);
+            gen(now_node.rhs.unwrap(), node_list, input, counter); // Bのコード
+            println!("  jmp .Lbegin{}", label_name);
             println!(".Lend{}:", label_name);
             return;
         }

@@ -47,6 +47,7 @@ pub enum NodeKind {
     If,     // if <- IFFLAGとIFSTMTをそれぞれlhs, rhsに持つ
     IfFlag,
     IfStmt,
+    While, // while <- flagとstmtをそれぞれlhs, rhsに持つ
 }
 // ノード型
 #[derive(Debug)]
@@ -137,20 +138,6 @@ impl NodeList {
         new_idx
     }
 
-    // 新しいreturnノードを作成し、そのindexを返す
-    fn append_new_node_return(&mut self, input_idx: usize, lhs: Option<usize>) -> usize {
-        let new_idx = self.nodes.len();
-        self.nodes.push(Node {
-            kind: NodeKind::Return,
-            input_idx,
-            lhs,
-            rhs: None,
-            val: None,
-            offset: None,
-        });
-        new_idx
-    }
-
     // program    = stmt*
     pub fn program(&mut self, token_list: &mut TokenList) {
         while !token_list.at_eof() {
@@ -172,7 +159,8 @@ impl NodeList {
         if token_list.consume(TokenKind::Return, None) {
             // return
             let lhs = self.expr(token_list);
-            idx = self.append_new_node_return(input_idx, Some(lhs));
+            idx = self.append_new_node(NodeKind::Return, input_idx, Some(lhs), None);
+            token_list.expect(TokenKind::Reserved, Some(";"));
         } else if token_list.consume(TokenKind::If, None) {
             // if
             token_list.expect(TokenKind::Reserved, Some("("));
@@ -190,10 +178,18 @@ impl NodeList {
             let rhs =
                 self.append_new_node(NodeKind::IfStmt, input_idx_inner + 1, stmt_left, stmt_right);
             idx = self.append_new_node(NodeKind::If, input_idx, Some(lhs), Some(rhs));
+        } else if token_list.consume(TokenKind::While, None) {
+            // while
+            token_list.expect(TokenKind::Reserved, Some("("));
+            let expr = self.expr(token_list);
+            token_list.expect(TokenKind::Reserved, Some(")"));
+            let stmt = self.stmt(token_list);
+            idx = self.append_new_node(NodeKind::While, input_idx, Some(expr), Some(stmt));
         } else {
             idx = self.expr(token_list);
+            token_list.expect(TokenKind::Reserved, Some(";"));
         }
-        token_list.expect(TokenKind::Reserved, Some(";"));
+
         idx
     }
 

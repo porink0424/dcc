@@ -1,6 +1,7 @@
 #!/bin/bash
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
 PURPLE='\033[0;35m'
 NC='\033[0m'
 
@@ -18,12 +19,11 @@ assert() {
 
     actual="$?"
 
+    echo -e "${YELLOW}\`\`\`$input\`\`\`${NC}"
     if [ "$actual" = "$expected" ]; then
-        echo "\`\`\`$input\`\`\`"
         echo "=> $actual"
         echo
     else
-        echo "\`\`\`$input\`\`\`"
         echo -e "${RED}=> $expected expected, but got $actual${NC}"
         echo
         exit 1
@@ -64,20 +64,25 @@ assert() {
 # return 8;
 # '
 # assert 3 '
-# if (1) 3; else 2; ;
+# if (1) 3; else 2;
 # '
 # assert 4 '
-# if (1) return 4;; 7;
+# if (1) return 4; 7;
 # '
-assert 1 '
-year = 2024;
+# assert 1 '
+# year = 2024;
 
-year_quarter = year / 4;
-if (year == year_quarter * 4)
-    1;
-else
-    0;
-;
+# year_quarter = year / 4;
+# if (year == year_quarter * 4)
+#     1;
+# else
+#     0;
+# '
+assert 22 '
+sum = 0;
+while (sum <= 20)
+    sum = sum + 2;
+sum;
 '
 
 echo -e "${GREEN}test finished successfully.${NC}"

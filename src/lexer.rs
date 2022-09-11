@@ -8,6 +8,7 @@ pub enum TokenKind {
     Num,      // 整数トークン
     If,       // if
     Else,     // else
+    While,    // while
     Return,   // リターン
     EOF,
 }
@@ -81,6 +82,14 @@ impl TokenList {
             // else
             if let Some(new_idx) =
                 token_list.can_tokenize(p, idx, &"else".to_string(), TokenKind::Else)
+            {
+                idx = new_idx;
+                continue;
+            }
+
+            // while
+            if let Some(new_idx) =
+                token_list.can_tokenize(p, idx, &"while".to_string(), TokenKind::While)
             {
                 idx = new_idx;
                 continue;
@@ -238,7 +247,11 @@ impl TokenList {
     pub fn expect_number(&mut self) -> Option<isize> {
         let now_token = self.get_now_token();
         if now_token.kind != TokenKind::Num {
-            error::error(now_token.input_idx, "数ではありません", &self.input);
+            error::error(
+                now_token.input_idx,
+                "数がくることが期待されています",
+                &self.input,
+            );
         }
         let val = now_token.val;
         self.now += 1;
