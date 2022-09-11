@@ -4,6 +4,7 @@
 # 自動生成されるファイル
 Cargo.lock
 tmp*
+*.o
 
 # IDE
 .vscode
