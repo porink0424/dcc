@@ -3,6 +3,9 @@ use crate::{
     parser::{Node, NodeKind, NodeList},
 };
 
+// x86-64に従った関数呼び出しの引数レジスタ
+const ARGS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+
 // ユニークな数を出力するためのカウンター
 pub struct Counter {
     cnt: usize,
@@ -201,9 +204,45 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
         }
         NodeKind::App => {
             let lhs = &node_list.nodes[now_node.lhs.unwrap()];
-            println!("  call {}", lhs.var_name.as_ref().unwrap());
+            let mut node = now_node.rhs;
 
-            println!("  push 0"); // dummy
+            // nodeがNoneになるまでループ
+            let mut arg_idx = 0;
+
+            while let Some(x) = node {
+                // 引数レジスタの制限を超えた場合
+                if arg_idx >= ARGS.len() {
+                    error::error(
+                        node_list.nodes[x].input_idx,
+                        "これ以上引数を増やせません",
+                        input,
+                    );
+                }
+
+                // nodeがNoneでなかったので、lhsに引数がある
+                let expr = node_list.nodes[x].lhs.unwrap();
+                gen(expr, node_list, input, counter); // exprを計算するコードを出力
+                println!("  pop rax"); // exprの値をraxに取り出す
+                println!("  mov {}, rax", ARGS[arg_idx]); // ABIに従ったレジスタに引数を登録
+                arg_idx += 1;
+                node = node_list.nodes[x].rhs;
+            }
+
+            // 関数呼び出しの際はrspが16の倍数になっていなければならないことに注意しながら、関数を呼び出す
+            let label_name = counter.new_cnt();
+            println!("  mov rax, rsp");
+            println!("  and rax, 15");
+            println!("  cmp rax, 0");
+            println!("  je .LskipAlign{}", label_name);
+            println!("  sub rsp, 8");
+            println!("  call {}", lhs.var_name.as_ref().unwrap());
+            println!("  add rsp, 8");
+            println!("  jmp .LendAlign{}", label_name);
+            println!(".LskipAlign{}:", label_name);
+            println!("  call {}", lhs.var_name.as_ref().unwrap());
+            println!(".LendAlign{}:", label_name);
+
+            println!("  push rax"); // 関数の返り値をpush
             return;
         }
         _ => (),

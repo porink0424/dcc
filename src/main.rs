@@ -21,15 +21,16 @@ fn main() {
     if RELEASE_MODE {
         token_list = lexer::TokenList::tokenize(&args[1].chars().collect());
     } else {
-        token_list = lexer::TokenList::tokenize(&"{1;3;}".chars().collect::<Vec<char>>());
-        // println!("{:#?}", token_list);
+        token_list =
+            lexer::TokenList::tokenize(&"a = foo();return a;".chars().collect::<Vec<char>>());
+        println!("{:#?}", token_list);
     }
 
     // 構文解析
     let mut node_list = parser::NodeList::new();
     node_list.program(&mut token_list);
     if !RELEASE_MODE {
-        // println!("{:#?}", node_list);
+        println!("{:#?}", node_list);
     }
 
     // アセンブリの前半部分を出力

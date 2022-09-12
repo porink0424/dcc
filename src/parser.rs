@@ -52,7 +52,8 @@ pub enum NodeKind {
     ForFst,
     ForSnd,
     Block, // { ... } <- lhsにはstmtからなるノードを、rhsには連続的にBlockノードを持つ
-    App,   // 関数適用 <- lhsに関数名が入ったLvarを持つ
+    App,   // 関数適用 <- lhsに関数名が入ったLvarを持つ。rhsには連続的にArgノードを持つ
+    Arg,   // lhsにexprからなるノードを、rhsに連続的にArgノードを持つ
 }
 // ノード型
 #[derive(Debug)]
@@ -373,7 +374,7 @@ impl NodeList {
         }
     }
 
-    // primary    = num | ident ("(" ")")? | "(" expr ")"
+    // primary    = num | ident ("(" expr* ")")? | "(" expr ")"
     fn primary(&mut self, token_list: &mut TokenList) -> usize {
         let input_idx = token_list.tokens[token_list.now].input_idx;
         if token_list.consume(TokenKind::Reserved, Some("(")) {
@@ -410,8 +411,36 @@ impl NodeList {
 
             if token_list.consume(TokenKind::Reserved, Some("(")) {
                 // 関数呼び出し
-                token_list.expect(TokenKind::Reserved, Some(")"));
                 ret = self.append_new_node(NodeKind::App, input_idx, Some(ret), None);
+                let mut node = ret;
+
+                if token_list.consume(TokenKind::Reserved, Some(")")) {
+                    // 引数がない場合はなにもしない
+                } else {
+                    // 引数が1個以上ある
+                    loop {
+                        // 引数が続く
+                        let expr = self.expr(token_list);
+                        let arg = self.append_new_node(
+                            NodeKind::Arg,
+                            token_list.tokens[token_list.now].input_idx,
+                            Some(expr),
+                            None,
+                        );
+                        self.nodes[node].rhs = Some(arg);
+                        node = arg;
+                        if token_list.consume(TokenKind::Reserved, Some(")")) {
+                            // 引数は終わり
+                            break;
+                        } else if token_list.consume(TokenKind::Reserved, Some(",")) {
+                            // 引数はまだ続く
+                            continue;
+                        } else {
+                            // ここには辿り着かないはずなのでparseが失敗している
+                            error::error(input_idx, "不正な関数呼び出しです", &token_list.input);
+                        }
+                    }
+                }
             }
 
             ret

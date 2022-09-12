@@ -94,8 +94,9 @@ assert() {
 #     return 1;
 # }
 # '
-assert 0 '
-foo();
+assert 21 '
+a = add(1,2,3,4,5,6);
+return a;
 '
 
 echo -e "${GREEN}test finished successfully.${NC}"
