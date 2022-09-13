@@ -5,9 +5,9 @@ use crate::{
 
 // ローカル変数の型
 #[derive(Debug)]
-struct LVar {
-    name: String,  // 名前の長さ
-    offset: usize, // RBPからのオフセット
+pub struct LVar {
+    pub name: String,  // 名前の長さ
+    pub offset: usize, // RBPからのオフセット
 }
 #[derive(Debug)]
 pub struct LVarList {
@@ -19,13 +19,23 @@ impl LVarList {
     }
 
     // 変数を名前で検索する。見つからなかった場合はfalseを返す
-    fn find_lvar(&self, name: &String) -> (Option<&LVar>, bool) {
+    pub fn find_lvar(&self, name: &String) -> (Option<&LVar>, bool) {
         for lvar in self.lvars.iter() {
             if name.eq(&lvar.name) {
                 return (Some(lvar), true);
             }
         }
         (None, false)
+    }
+
+    // 新しい変数を追加する。オフセットを返り値として返す
+    fn add_new_lvar(&mut self, name: &String) -> usize {
+        let len = self.lvars.len();
+        self.lvars.push(LVar {
+            name: name.clone(),
+            offset: (len + 1) * 8,
+        });
+        (len + 1) * 8
     }
 }
 
@@ -70,14 +80,20 @@ pub struct Node {
 pub struct NodeList {
     pub roots: Vec<usize>, // プログラムの中の各文のrootノードのindex
     pub nodes: Vec<Node>,
-    pub lval_list: LVarList,
+    pub lvar_list: LVarList,
 }
 impl NodeList {
-    pub fn new() -> Self {
+    pub fn new(args: &Vec<String>) -> Self {
+        // 関数定義の引数として与えられた変数は、そのような変数が最初から存在するものとしてコンパイルしておく
+        let mut lvar_list = LVarList::new();
+        for arg in args.iter() {
+            lvar_list.add_new_lvar(arg);
+        }
+
         NodeList {
             roots: vec![],
             nodes: vec![],
-            lval_list: LVarList::new(),
+            lvar_list,
         }
     }
 
@@ -147,14 +163,6 @@ impl NodeList {
             var_name: Some(var_name.clone()),
         });
         new_idx
-    }
-
-    // program    = stmt*
-    pub fn program(&mut self, token_list: &mut TokenList) {
-        while !token_list.at_eof() {
-            let idx = self.stmt(token_list);
-            self.roots.push(idx);
-        }
     }
 
     /*
@@ -391,22 +399,12 @@ impl NodeList {
                 .iter()
                 .collect();
             let mut ret;
-            if let (Some(lvar), true) = self.lval_list.find_lvar(&var_name) {
+            if let (Some(lvar), true) = self.lvar_list.find_lvar(&var_name) {
                 // 今までに使われたことがある
                 ret = self.append_new_node_lvar(input_idx, Some(lvar.offset), token_list, &var_name)
             } else {
-                // idx番目に新しいローカル変数を、lvar_listに登録する
-                let idx = self.lval_list.lvars.len();
-                ret = self.append_new_node_lvar(
-                    input_idx,
-                    Some((idx + 1) * 8),
-                    token_list,
-                    &var_name,
-                );
-                self.lval_list.lvars.push(LVar {
-                    name: var_name,
-                    offset: (idx + 1) * 8,
-                });
+                let offset = self.lvar_list.add_new_lvar(&var_name);
+                ret = self.append_new_node_lvar(input_idx, Some(offset), token_list, &var_name);
             }
 
             if token_list.consume(TokenKind::Reserved, Some("(")) {
@@ -447,6 +445,57 @@ impl NodeList {
         } else {
             // num
             self.append_new_node_num(input_idx, token_list.expect_number(), token_list)
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct Func {
+    pub program: NodeList, // 関数をNodeListを用いて表現する
+    pub args: Vec<String>, // 関数の引数名
+    pub name: String,      // 関数の名前
+}
+impl Func {
+    // func    = ident "(" ident* ")" "{" stmt* "}"
+    pub fn new(token_list: &mut TokenList) -> Self {
+        let input_idx = token_list.tokens[token_list.now].input_idx;
+
+        let func_name = token_list.expect_ident();
+        token_list.expect(TokenKind::Reserved, Some("("));
+
+        let mut args = vec![];
+        if token_list.consume(TokenKind::Reserved, Some(")")) {
+            // 引数が何もない場合はなにもしない
+        } else {
+            // 引数が1個以上ある
+            loop {
+                let arg_name = token_list.expect_ident();
+                args.push(arg_name);
+                if token_list.consume(TokenKind::Reserved, Some(")")) {
+                    // 引数は終わり
+                    break;
+                } else if token_list.consume(TokenKind::Reserved, Some(",")) {
+                    // 引数はまだ続く
+                    continue;
+                } else {
+                    // ここには辿り着かないはずなのでparseが失敗している
+                    error::error(input_idx, "不正な関数定義です", &token_list.input);
+                }
+            }
+        }
+
+        token_list.expect(TokenKind::Reserved, Some("{"));
+
+        let mut program = NodeList::new(&args);
+        while !token_list.consume(TokenKind::Reserved, Some("}")) {
+            let idx = program.stmt(token_list);
+            program.roots.push(idx);
+        }
+
+        Func {
+            program,
+            args,
+            name: func_name,
         }
     }
 }

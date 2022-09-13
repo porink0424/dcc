@@ -17,7 +17,7 @@ assert() {
     input="$2"
 
     # dccによるコンパイル
-    ./target/debug/dcc "$input" > tmp.s
+    ./target/debug/dcc r "$input" > tmp.s
     # アセンブル、sample.oとのリンク、実行をdocker環境でやらせる
     docker run --rm -v $(cd $(dirname $0) && pwd):/dcc -w /dcc dcc /bin/sh -c "cc -c tmp.s; cc -o tmp tmp.o sample.o; ./tmp"
 
@@ -94,9 +94,41 @@ assert() {
 #     return 1;
 # }
 # '
-assert 21 '
-a = add(1,2,3,4,5,6);
-return a;
+# assert 21 '
+# main() {
+# a = add(1,2,3,4,5,6);
+# return a;
+# }
+# '
+# assert 66 '
+# add(x, y) {
+#     print(x);
+#     print(y);
+#     return x + y;
+# }
+
+# main() {
+#     sum = 0;
+#     for (i = 0; i <= 10; i = i + 2) {
+#         sum = sum + add(i, i + 1);
+#     }
+#     return sum;
+# }
+# '
+assert 55 '
+fib(n) {
+    if (n == 1) {
+        return 1;
+    } else if (n == 2) {
+        return 1;
+    } else {
+        return fib(n-1) + fib(n-2);
+    }
+}
+
+main() {
+    return fib(10);
+}
 '
 
 echo -e "${GREEN}test finished successfully.${NC}"

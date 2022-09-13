@@ -1,6 +1,6 @@
 use crate::{
     error,
-    parser::{Node, NodeKind, NodeList},
+    parser::{Func, Node, NodeKind, NodeList},
 };
 
 // x86-64に従った関数呼び出しの引数レジスタ
@@ -9,16 +9,59 @@ const ARGS: [&str; 6] = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
 // ユニークな数を出力するためのカウンター
 pub struct Counter {
     cnt: usize,
+    func_name: String,
 }
 impl Counter {
-    pub fn new() -> Self {
-        Counter { cnt: 0 }
+    pub fn new(func_name: &String) -> Self {
+        Counter {
+            cnt: 0,
+            func_name: func_name.clone(),
+        }
     }
-    fn new_cnt(&mut self) -> String {
-        let ret = self.cnt.to_string();
+    fn new_label(&mut self) -> String {
+        let ret = format!("{}{}", self.func_name, self.cnt.to_string());
         self.cnt += 1;
         ret
     }
+}
+
+// Funcからアセンブリを出力する
+pub fn gen(func: &Func, input: &Vec<char>) {
+    println!("");
+    println!("{}:", func.name);
+
+    // 変数26個分の領域をメモリ上に確保
+    println!("  push rbp");
+    println!("  mov rbp, rsp");
+    println!("  sub rsp, 208");
+
+    // 引数の値を、引数レジスタから取り出して書き込む
+    if func.args.len() > ARGS.len() {
+        error::error(
+            func.program.nodes[0].input_idx,
+            "これ以上引数を増やせません",
+            input,
+        );
+    }
+    for (i, arg) in func.args.iter().enumerate() {
+        println!("  mov rax, rbp");
+        let lvar = func.program.lvar_list.find_lvar(arg).0.unwrap();
+        println!("  sub rax, {}", lvar.offset);
+        println!("  mov [rax], {}", ARGS[i]);
+    }
+
+    // ASTをトップダウンに降りコード出力
+    let mut counter = Counter::new(&func.name);
+    let node_list = &func.program;
+    for root in node_list.roots.iter() {
+        gen_from_node_list(*root, node_list, input, &mut counter);
+        println!("  pop rax"); // スタックがいっぱいにならないように毎回raxにpopする
+    }
+
+    // スタックトップに残っている式の最終的な値をraxにロードして終了
+    println!("  mov rsp, rbp");
+    println!("  pop rbp");
+    println!("  ret");
 }
 
 // 与えられたノードが変数を指しているときに、その変数のアドレスを計算して、その結果をスタックにpushする
@@ -32,8 +75,13 @@ fn gen_lval(node: &Node, input: &Vec<char>) {
     println!("  push rax");
 }
 
-// ASTからスタックマシンをemulateする形でアセンブリを出力する
-pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Counter) {
+// ASTからスタックマシンをemulateする形でnode_listが表現するアセンブリを出力する
+pub fn gen_from_node_list(
+    now: usize,
+    node_list: &NodeList,
+    input: &Vec<char>,
+    counter: &mut Counter,
+) {
     let now_node = &node_list.nodes[now];
 
     match now_node.kind {
@@ -58,7 +106,7 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             C;
             end:
             */
-            let label_name = counter.new_cnt();
+            let label_name = counter.new_label();
             let lhs = &node_list.nodes[now_node.lhs.unwrap()];
             let rhs = &node_list.nodes[now_node.rhs.unwrap()];
             let else_exist = if let Some(_) = rhs.rhs { true } else { false };
@@ -67,7 +115,7 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             if lhs.kind != NodeKind::IfFlag {
                 error::error(lhs.input_idx, "IFの判定部分が期待されています", input);
             }
-            gen(lhs.lhs.unwrap(), node_list, input, counter);
+            gen_from_node_list(lhs.lhs.unwrap(), node_list, input, counter);
 
             // Aの結果をpopして分岐
             println!("  pop rax");
@@ -82,13 +130,13 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             if rhs.kind != NodeKind::IfStmt {
                 error::error(rhs.input_idx, "IFのstatementが期待されています", input);
             }
-            gen(rhs.lhs.unwrap(), node_list, input, counter);
+            gen_from_node_list(rhs.lhs.unwrap(), node_list, input, counter);
 
             // Cのコード出力
             if else_exist {
                 println!("  jmp .Lend{}", label_name);
                 println!(".Lelse{}:", label_name);
-                gen(rhs.rhs.unwrap(), node_list, input, counter);
+                gen_from_node_list(rhs.rhs.unwrap(), node_list, input, counter);
             }
 
             println!(".Lend{}:", label_name);
@@ -105,14 +153,14 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             goto begin;
             end:
             */
-            let label_name = counter.new_cnt();
+            let label_name = counter.new_label();
 
             println!(".Lbegin{}:", label_name);
-            gen(now_node.lhs.unwrap(), node_list, input, counter); // Aのコード
+            gen_from_node_list(now_node.lhs.unwrap(), node_list, input, counter); // Aのコード
             println!("  pop rax");
             println!("  cmp rax, 0");
             println!("  je .Lend{}", label_name);
-            gen(now_node.rhs.unwrap(), node_list, input, counter); // Bのコード
+            gen_from_node_list(now_node.rhs.unwrap(), node_list, input, counter); // Bのコード
             println!("  jmp .Lbegin{}", label_name);
             println!(".Lend{}:", label_name);
             return;
@@ -130,20 +178,20 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             goto begin;
             end:
             */
-            let label_name = counter.new_cnt();
+            let label_name = counter.new_label();
             let lhs = &node_list.nodes[now_node.lhs.unwrap()];
             let rhs = &node_list.nodes[now_node.rhs.unwrap()];
 
             // Aのコード出力
             if let Some(a) = lhs.lhs {
-                gen(a, node_list, input, counter);
+                gen_from_node_list(a, node_list, input, counter);
             }
 
             println!(".Lbegin{}:", label_name);
 
             // Bのコード出力
             if let Some(b) = lhs.rhs {
-                gen(b, node_list, input, counter);
+                gen_from_node_list(b, node_list, input, counter);
             }
 
             println!("  pop rax");
@@ -151,11 +199,11 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             println!("  je .Lend{}", label_name);
 
             // Dのコード出力
-            gen(rhs.rhs.unwrap(), node_list, input, counter);
+            gen_from_node_list(rhs.rhs.unwrap(), node_list, input, counter);
 
             // Cのコード出力
             if let Some(c) = rhs.lhs {
-                gen(c, node_list, input, counter);
+                gen_from_node_list(c, node_list, input, counter);
             }
 
             println!("  jmp .Lbegin{}", label_name);
@@ -163,7 +211,7 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             return;
         }
         NodeKind::Return => {
-            gen(now_node.lhs.unwrap(), node_list, input, counter);
+            gen_from_node_list(now_node.lhs.unwrap(), node_list, input, counter);
             println!("  pop rax");
             println!("  mov rsp, rbp");
             println!("  pop rbp");
@@ -183,7 +231,7 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
         }
         NodeKind::Assign => {
             gen_lval(&node_list.nodes[now_node.lhs.unwrap()], input);
-            gen(now_node.rhs.unwrap(), node_list, input, counter);
+            gen_from_node_list(now_node.rhs.unwrap(), node_list, input, counter);
             println!("  pop rdi"); // 右辺値を取り出す
             println!("  pop rax"); // 左辺値のアドレスを取り出す
             println!("  mov [rax], rdi");
@@ -196,7 +244,7 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
             // blockノードのlhsがNoneになるまでループ
             while let Some(stmt) = node.lhs {
                 println!("  pop rax"); // 各1つのstmtは1つの値をスタックに残したままにしているので、stmtが続くときは前の値を取り出しておく
-                gen(stmt, node_list, input, counter);
+                gen_from_node_list(stmt, node_list, input, counter);
                 node = &node_list.nodes[node.rhs.unwrap()]; // 次のblockノードをセット
             }
 
@@ -221,15 +269,16 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
 
                 // nodeがNoneでなかったので、lhsに引数がある
                 let expr = node_list.nodes[x].lhs.unwrap();
-                gen(expr, node_list, input, counter); // exprを計算するコードを出力
-                println!("  pop rax"); // exprの値をraxに取り出す
-                println!("  mov {}, rax", ARGS[arg_idx]); // ABIに従ったレジスタに引数を登録
+                gen_from_node_list(expr, node_list, input, counter); // exprを計算するコードを出力
                 arg_idx += 1;
                 node = node_list.nodes[x].rhs;
             }
+            for i in (0..arg_idx).rev() {
+                println!("  pop {}", ARGS[i]); // ABIに従ったレジスタに引数を登録
+            }
 
             // 関数呼び出しの際はrspが16の倍数になっていなければならないことに注意しながら、関数を呼び出す
-            let label_name = counter.new_cnt();
+            let label_name = counter.new_label();
             println!("  mov rax, rsp");
             println!("  and rax, 15");
             println!("  cmp rax, 0");
@@ -248,8 +297,8 @@ pub fn gen(now: usize, node_list: &NodeList, input: &Vec<char>, counter: &mut Co
         _ => (),
     }
 
-    gen(now_node.lhs.unwrap(), node_list, input, counter);
-    gen(now_node.rhs.unwrap(), node_list, input, counter);
+    gen_from_node_list(now_node.lhs.unwrap(), node_list, input, counter);
+    gen_from_node_list(now_node.rhs.unwrap(), node_list, input, counter);
 
     println!("  pop rdi");
     println!("  pop rax");

@@ -252,6 +252,18 @@ impl TokenList {
         }
     }
 
+    // 次のトークンがIDの場合、トークンを1つ読み進めてその名前を返す。それ以外はエラーになる。
+    pub fn expect_ident(&mut self) -> String {
+        let now_token = self.get_now_token();
+        let input_idx = now_token.input_idx;
+        if now_token.kind != TokenKind::ID {
+            error::error(input_idx, "識別子が来ることが期待されています", &self.input);
+        }
+        let len = now_token.len;
+        self.now += 1;
+        self.input[input_idx..(input_idx + len)].iter().collect()
+    }
+
     // 次のトークンが数値の場合、トークンを1つ読み進めてその数値を返す。それ以外はエラーになる。
     pub fn expect_number(&mut self) -> Option<isize> {
         let now_token = self.get_now_token();
