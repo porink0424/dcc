@@ -11,6 +11,7 @@ pub enum TokenKind {
     While,    // while
     For,      // for
     Return,   // リターン
+    Int,
     EOF,
 }
 // トークン型
@@ -99,6 +100,14 @@ impl TokenList {
             // while
             if let Some(new_idx) =
                 token_list.can_tokenize(p, idx, &"while".to_string(), TokenKind::While)
+            {
+                idx = new_idx;
+                continue;
+            }
+
+            // int
+            if let Some(new_idx) =
+                token_list.can_tokenize(p, idx, &"int".to_string(), TokenKind::Int)
             {
                 idx = new_idx;
                 continue;

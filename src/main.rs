@@ -12,19 +12,16 @@ fn main() {
     // 実行時引数からプログラムを受け取る
     let args = env::args().collect::<Vec<String>>();
     let release_mode;
-    if args[1].chars().collect::<String>().eq(&"r".to_string()) {
+    if args.len() >= 2 && args[1].chars().collect::<String>().eq(&"r".to_string()) {
         // release mode
         release_mode = true;
         if args.len() < 3 {
             eprintln!("引数の個数が正しくありません");
             std::process::exit(1);
         }
-    } else if args[1].chars().collect::<String>().eq(&"d".to_string()) {
+    } else {
         // debug mode
         release_mode = false;
-    } else {
-        eprintln!("引数に正しくモードを入力してください");
-        std::process::exit(1);
     }
 
     // 字句解析
@@ -32,8 +29,11 @@ fn main() {
     if release_mode {
         token_list = lexer::TokenList::tokenize(&args[2].chars().collect());
     } else {
-        token_list =
-            lexer::TokenList::tokenize(&"main() {return 2;}".chars().collect::<Vec<char>>());
+        token_list = lexer::TokenList::tokenize(
+            &"main() {int x; int y; x = 3;y = &x;return *y;}"
+                .chars()
+                .collect::<Vec<char>>(),
+        );
         // println!("{:#?}", token_list); // printing for debug
     }
 

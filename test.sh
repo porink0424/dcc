@@ -34,104 +34,108 @@ assert() {
     fi
 }
 
-# assert 15 '5*(9-6);'
-# assert 4 '(3+5)/2;'
-# assert 19 '-5-+6+30;'
-# assert 1 '(4 == 2) + (3 < 5);'
-# assert 7 '
-# ZoanfA_5ad = (4 * 4) / 2;
-# fh978a__4A = 2 - 3;
-# ZoanfA_5ad + fh978a__4A;
-# '
-# assert 14 '
-# a = 3;
-# b = 5 * 6 - 8;
-# return a + b / 2;
-# '
-# assert 5 '
-# return 5;
-# return 8;
-# '
-# assert 4 '
-# if (1) return 4; 7;
-# '
-# assert 1 '
-# year = 2024;
+assert 13 '
+int main() {
+    int ZoanfA_5ad;
+    int fh978a__4A; 
+    ZoanfA_5ad = (4 * 4) / 2;
+    fh978a__4A = 2 - 3;
+    return (ZoanfA_5ad + fh978a__4A) * 2 - 1;
+}
+'
+assert 1 '
+int main() {
+    int year;
+    int year_quarter;
 
-# year_quarter = year / 4;
-# if (year == year_quarter * 4)
-#     1;
-# else
-#     0;
-# '
-# assert 22 '
-# sum = 0;
-# while (sum <= 20)
-#     sum = sum + 2;
-# sum;
-# '
-# assert 55 '
-# sum = 0;
-# i = 0;
-# for (; i <= 10; i = i + 1)
-#     sum = sum + i;
-# return sum;
-# '
-# # numberが素数なら1を出力するプログラム
-# assert 1 '
-# number = 13;
-# flag = 0;
+    year = 2024;
 
-# for (i = 2; i < number; i = i + 1) {
-#     if ((number / i) * i == number) {
-#         flag = 1;
-#     }
-# }
+    year_quarter = year / 4;
+    if (year == year_quarter * 4)
+        1;
+    else
+        0;
+}
+'
+assert 22 '
+int main() {
+    int sum;
+    sum = 0;
+    while (sum <= 20)
+        sum = sum + 2;
+    sum;
+}
+'
+assert 55 '
+int main() {
+    int sum;
+    int i;
+    sum = 0;
+    i = 0;
+    for (; i <= 10; i = i + 1)
+        sum = sum + i;
+    return sum;
+}
+'
+# numberが素数なら1を出力するプログラム
+assert 1 '
+int main() {
+    int number;
+    number = 13;
 
-# if (flag) {
-#     return 0;
-# } else {
-#     return 1;
-# }
-# '
-# assert 21 '
-# main() {
-# a = add(1,2,3,4,5,6);
-# return a;
-# }
-# '
-# assert 66 '
-# add(x, y) {
-#     print(x);
-#     print(y);
-#     return x + y;
-# }
+    int flag;
+    flag = 0;
 
-# main() {
-#     sum = 0;
-#     for (i = 0; i <= 10; i = i + 2) {
-#         sum = sum + add(i, i + 1);
-#     }
-#     return sum;
-# }
-# '
-# assert 55 '
-# fib(n) {
-#     if (n == 1) {
-#         return 1;
-#     } else if (n == 2) {
-#         return 1;
-#     } else {
-#         return fib(n-1) + fib(n-2);
-#     }
-# }
+    int i;
 
-# main() {
-#     return fib(10);
-# }
-# '
+    for (i = 2; i < number; i = i + 1) {
+        if ((number / i) * i == number) {
+            flag = 1;
+        }
+    }
+
+    if (flag) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+'
+assert 66 '
+int add(int x, int y) {
+    return x + y;
+}
+
+int main() {
+    int i;
+    int sum;
+
+    sum = 0;
+    for (i = 0; i <= 10; i = i + 2) {
+        sum = sum + add(i, i + 1);
+    }
+    return sum;
+}
+'
+assert 55 '
+int fib(int n) {
+    if (n == 1) {
+        return 1;
+    } else if (n == 2) {
+        return 1;
+    } else {
+        return fib(n-1) + fib(n-2);
+    }
+}
+
+int main() {
+    return fib(10);
+}
+'
 assert 3 '
-main() {
+int main() {
+    int x;
+    int y;
     x = 3;
     y = &x;
     return *y;

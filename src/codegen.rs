@@ -85,6 +85,7 @@ pub fn gen_from_node_list(
     let now_node = &node_list.nodes[now];
 
     match now_node.kind {
+        NodeKind::Int => return,
         NodeKind::If => {
             /*
             if (A) B else C
@@ -263,7 +264,7 @@ pub fn gen_from_node_list(
             return;
         }
         NodeKind::App => {
-            let lhs = &node_list.nodes[now_node.lhs.unwrap()];
+            let func_name = now_node.name.as_ref().unwrap();
             let mut node = now_node.rhs;
 
             // nodeがNoneになるまでループ
@@ -296,11 +297,11 @@ pub fn gen_from_node_list(
             println!("  cmp rax, 0");
             println!("  je .LskipAlign{}", label_name);
             println!("  sub rsp, 8");
-            println!("  call {}", lhs.var_name.as_ref().unwrap());
+            println!("  call {}", func_name);
             println!("  add rsp, 8");
             println!("  jmp .LendAlign{}", label_name);
             println!(".LskipAlign{}:", label_name);
-            println!("  call {}", lhs.var_name.as_ref().unwrap());
+            println!("  call {}", func_name);
             println!(".LendAlign{}:", label_name);
 
             println!("  push rax"); // 関数の返り値をpush
