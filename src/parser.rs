@@ -64,6 +64,8 @@ pub enum NodeKind {
     Block, // { ... } <- lhsにはstmtからなるノードを、rhsには連続的にBlockノードを持つ
     App,   // 関数適用 <- lhsに関数名が入ったLvarを持つ。rhsには連続的にArgノードを持つ
     Arg,   // lhsにexprからなるノードを、rhsに連続的にArgノードを持つ
+    Addr,  // 単項&
+    Deref, // 単項*
 }
 // ノード型
 #[derive(Debug)]
@@ -367,7 +369,7 @@ impl NodeList {
         }
     }
 
-    // unary   = ("+" | "-")? primary
+    // unary   = ("+" | "-")? primary | "*" unary | "&" unary
     fn unary(&mut self, token_list: &mut TokenList) -> usize {
         if token_list.consume(TokenKind::Reserved, Some("+")) {
             self.primary(token_list)
@@ -377,6 +379,16 @@ impl NodeList {
             let zero = self.append_new_node_num(input_idx, Some(0), token_list);
             let rhs = self.primary(token_list);
             self.append_new_node(NodeKind::Sub, input_idx, Some(zero), Some(rhs))
+        } else if token_list.consume(TokenKind::Reserved, Some("*")) {
+            // deref
+            let input_idx = token_list.tokens[token_list.now].input_idx;
+            let lhs = self.unary(token_list);
+            self.append_new_node(NodeKind::Deref, input_idx, Some(lhs), None)
+        } else if token_list.consume(TokenKind::Reserved, Some("&")) {
+            // addr
+            let input_idx = token_list.tokens[token_list.now].input_idx;
+            let lhs = self.unary(token_list);
+            self.append_new_node(NodeKind::Addr, input_idx, Some(lhs), None)
         } else {
             self.primary(token_list)
         }

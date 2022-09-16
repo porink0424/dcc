@@ -250,6 +250,18 @@ pub fn gen_from_node_list(
 
             return;
         }
+        NodeKind::Addr => {
+            let lhs = &node_list.nodes[now_node.lhs.unwrap()];
+            gen_lval(lhs, input);
+            return;
+        }
+        NodeKind::Deref => {
+            gen_from_node_list(now_node.lhs.unwrap(), node_list, input, counter);
+            println!("  pop rax");
+            println!("  mov rax, [rax]");
+            println!("  push rax");
+            return;
+        }
         NodeKind::App => {
             let lhs = &node_list.nodes[now_node.lhs.unwrap()];
             let mut node = now_node.rhs;
