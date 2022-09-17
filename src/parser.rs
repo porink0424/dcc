@@ -3,11 +3,23 @@ use crate::{
     lexer::{TokenKind, TokenList},
 };
 
+// 変数の型
+#[derive(PartialEq, Debug, Clone)]
+pub enum TypeKind {
+    INT,
+}
+#[derive(Debug, Clone)]
+pub struct Type {
+    pub typ: TypeKind,
+    pub nst: usize, // >0のとき、ポインタであることを表す。例えば Type { INT, 2 } は int** 型 を表す
+}
+
 // ローカル変数の型
 #[derive(Debug)]
 pub struct LVar {
     pub name: String,  // 名前
     pub offset: usize, // RBPからのオフセット
+    pub typ: Type,     // 型
 }
 #[derive(Debug)]
 pub struct LVarList {
@@ -29,13 +41,13 @@ impl LVarList {
     }
 
     // 新しい変数を追加する。オフセットを返り値として返す
-    fn add_new_lvar(&mut self, name: &String) -> usize {
+    fn add_new_lvar(&mut self, name: &String, typ: &Type) {
         let len = self.lvars.len();
         self.lvars.push(LVar {
             name: name.clone(),
             offset: (len + 1) * 8,
+            typ: typ.clone(),
         });
-        (len + 1) * 8
     }
 }
 
@@ -86,11 +98,11 @@ pub struct NodeList {
     pub lvar_list: LVarList,
 }
 impl NodeList {
-    pub fn new(args: &Vec<String>) -> Self {
+    pub fn new(args: &Vec<(String, Type)>) -> Self {
         // 関数定義の引数として与えられた変数は、そのような変数が最初から存在するものとしてコンパイルしておく
         let mut lvar_list = LVarList::new();
-        for arg in args.iter() {
-            lvar_list.add_new_lvar(arg);
+        for (arg_name, arg_type) in args.iter() {
+            lvar_list.add_new_lvar(arg_name, arg_type);
         }
 
         NodeList {
@@ -172,7 +184,7 @@ impl NodeList {
     /*
     stmt    = expr ";"
             | "{" stmt* "}"
-            | "int" ident ";"
+            | "int" "*"* ident ";"
             | "if" "(" expr ")" stmt ("else" stmt)?
             | "while" "(" expr ")" stmt
             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
@@ -211,6 +223,10 @@ impl NodeList {
             token_list.expect(TokenKind::Reserved, Some(";"));
         } else if token_list.consume(TokenKind::Int, None) {
             // intの変数定義
+            let mut nst = 0;
+            while token_list.consume(TokenKind::Reserved, Some("*")) {
+                nst += 1;
+            }
             let (ident, res) = token_list.consume_ident();
             if !res {
                 error::error(
@@ -227,7 +243,13 @@ impl NodeList {
                 [token_ident_idx..(token_ident_idx + token_ident_len)]
                 .iter()
                 .collect();
-            self.lvar_list.add_new_lvar(&var_name);
+            self.lvar_list.add_new_lvar(
+                &var_name,
+                &Type {
+                    typ: TypeKind::INT,
+                    nst,
+                },
+            );
             idx = self.append_new_node(
                 NodeKind::Int,
                 token_list.tokens[token_list.now].input_idx,
@@ -506,14 +528,19 @@ impl NodeList {
 
 #[derive(Debug)]
 pub struct Func {
-    pub program: NodeList, // 関数をNodeListを用いて表現する
-    pub args: Vec<String>, // 関数の引数名
-    pub name: String,      // 関数の名前
+    pub program: NodeList,         // 関数をNodeListを用いて表現する
+    pub args: Vec<(String, Type)>, // (関数の引数名, 型)
+    pub name: String,              // 関数の名前
 }
 impl Func {
-    // func    = "int" ident "(" ("int" ident)* ")" "{" stmt* "}"
+    // func    = "int" "*"* ident "(" ("int" "*"* ident)* ")" "{" stmt* "}"
     pub fn new(token_list: &mut TokenList) -> Self {
         token_list.expect(TokenKind::Int, None);
+
+        let mut _nst = 0;
+        while token_list.consume(TokenKind::Reserved, Some("*")) {
+            _nst += 1;
+        }
 
         let input_idx = token_list.tokens[token_list.now].input_idx;
 
@@ -527,8 +554,18 @@ impl Func {
             // 引数が1個以上ある
             loop {
                 token_list.expect(TokenKind::Int, None);
+                let mut nst = 0;
+                while token_list.consume(TokenKind::Reserved, Some("*")) {
+                    nst += 1;
+                }
                 let arg_name = token_list.expect_ident();
-                args.push(arg_name);
+                args.push((
+                    arg_name,
+                    Type {
+                        typ: TypeKind::INT,
+                        nst,
+                    },
+                ));
                 if token_list.consume(TokenKind::Reserved, Some(")")) {
                     // 引数は終わり
                     break;

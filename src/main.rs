@@ -30,9 +30,7 @@ fn main() {
         token_list = lexer::TokenList::tokenize(&args[2].chars().collect());
     } else {
         token_list = lexer::TokenList::tokenize(
-            &"main() {int x; int y; x = 3;y = &x;return *y;}"
-                .chars()
-                .collect::<Vec<char>>(),
+            &"int main() {int *x;*x = 3;}".chars().collect::<Vec<char>>(),
         );
         // println!("{:#?}", token_list); // printing for debug
     }

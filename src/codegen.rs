@@ -43,9 +43,9 @@ pub fn gen(func: &Func, input: &Vec<char>) {
             input,
         );
     }
-    for (i, arg) in func.args.iter().enumerate() {
+    for (i, (arg_name, _)) in func.args.iter().enumerate() {
         println!("  mov rax, rbp");
-        let lvar = func.program.lvar_list.find_lvar(arg).0.unwrap();
+        let lvar = func.program.lvar_list.find_lvar(arg_name).0.unwrap();
         println!("  sub rax, {}", lvar.offset);
         println!("  mov [rax], {}", ARGS[i]);
     }
@@ -65,14 +65,14 @@ pub fn gen(func: &Func, input: &Vec<char>) {
 }
 
 // 与えられたノードが変数を指しているときに、その変数のアドレスを計算して、その結果をスタックにpushする
-fn gen_lval(node: &Node, input: &Vec<char>) {
-    if node.kind != NodeKind::Lvar {
-        error::error(node.input_idx, "代入の左辺値が変数ではありません", input);
+fn gen_lval(node: &Node, node_list: &NodeList, input: &Vec<char>, counter: &mut Counter) {
+    if node.kind == NodeKind::Lvar {
+        println!("  mov rax, rbp");
+        println!("  sub rax, {}", node.offset.unwrap());
+        println!("  push rax");
+    } else if node.kind == NodeKind::Deref {
+        gen_from_node_list(node.lhs.unwrap(), node_list, input, counter);
     }
-
-    println!("  mov rax, rbp");
-    println!("  sub rax, {}", node.offset.unwrap());
-    println!("  push rax");
 }
 
 // ASTからスタックマシンをemulateする形でnode_listが表現するアセンブリを出力する
@@ -224,14 +224,19 @@ pub fn gen_from_node_list(
             return;
         }
         NodeKind::Lvar => {
-            gen_lval(now_node, input);
+            gen_lval(now_node, node_list, input, counter);
             println!("  pop rax"); // 左辺値のアドレスを取り出す
             println!("  mov rax, [rax]"); // 左辺値を取り出す
             println!("  push rax");
             return;
         }
         NodeKind::Assign => {
-            gen_lval(&node_list.nodes[now_node.lhs.unwrap()], input);
+            gen_lval(
+                &node_list.nodes[now_node.lhs.unwrap()],
+                node_list,
+                input,
+                counter,
+            );
             gen_from_node_list(now_node.rhs.unwrap(), node_list, input, counter);
             println!("  pop rdi"); // 右辺値を取り出す
             println!("  pop rax"); // 左辺値のアドレスを取り出す
@@ -253,7 +258,7 @@ pub fn gen_from_node_list(
         }
         NodeKind::Addr => {
             let lhs = &node_list.nodes[now_node.lhs.unwrap()];
-            gen_lval(lhs, input);
+            gen_lval(lhs, node_list, input, counter);
             return;
         }
         NodeKind::Deref => {
