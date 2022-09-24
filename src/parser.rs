@@ -8,7 +8,6 @@ use crate::{
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Type {
     Int(usize), // ポインタの段数をusizeで持つ。例えばInt(2)はint **型を表す
-    IntNum,     // 埋め込まれた定数の数字が持つ型
     Unknown,
     Stmt, // 文には型がない。構文の維持のために使われるノードが持つ
 }
@@ -545,11 +544,16 @@ impl NodeList {
         (idx, typ)
     }
 
-    // unary   = ("+" | "-")? primary | "*" unary | "&" unary
+    // unary   = "sizeof" unary | ("+" | "-")? primary | "*" unary | "&" unary
     fn unary(&mut self, token_list: &mut TokenList) -> (usize, Type) {
-        if token_list.consume(TokenKind::Reserved, Some("+")) {
+        if token_list.consume(TokenKind::Reserved, Some("sizeof")) {
+            //
+            self.unary(token_list)
+        } else if token_list.consume(TokenKind::Reserved, Some("+")) {
+            // +
             self.primary(token_list)
         } else if token_list.consume(TokenKind::Reserved, Some("-")) {
+            // -
             // -nは0-nに置き換える
             let input_idx = token_list.tokens[token_list.now].input_idx;
             let zero = self.append_new_node_num(input_idx, Some(0), token_list, Type::Int(0));
@@ -673,9 +677,9 @@ impl NodeList {
                     input_idx,
                     token_list.expect_number(),
                     token_list,
-                    Type::IntNum,
+                    Type::Int(0),
                 ),
-                Type::IntNum,
+                Type::Int(0),
             )
         }
     }

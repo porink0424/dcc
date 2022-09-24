@@ -378,11 +378,9 @@ fn adjust_pointer(now_typ: Type, lhs_typ: Type, rhs_typ: Type) {
     match now_typ {
         Type::Int(x) if x > 0 => {
             // ポインタの加算と減算は、型のサイズ分動く
-            // 二項演算がポインタ型の場合、typ::binary_calc_typeにより、片方がポインタ型、もう片方がint, num, unknownのどれかであることが確定していることを利用する
+            // 二項演算がポインタ型の場合、typ::binary_calc_typeにより、片方がポインタ型、もう片方がint, unknownのどちらかであることが確定していることを利用する
             match (lhs_typ, rhs_typ) {
-                (Type::Int(y), Type::IntNum)
-                | (Type::Int(y), Type::Unknown)
-                | (Type::Int(y), Type::Int(0)) => {
+                (Type::Int(y), Type::Unknown) | (Type::Int(y), Type::Int(0)) => {
                     // rhsを調整する必要がある
                     if y > 1 {
                         // Type::Int(y)はポインタへのポインタであるので、型のサイズは8で調整
@@ -392,9 +390,7 @@ fn adjust_pointer(now_typ: Type, lhs_typ: Type, rhs_typ: Type) {
                         println!("  imul rdi, 4");
                     }
                 }
-                (Type::IntNum, Type::Int(y))
-                | (Type::Unknown, Type::Int(y))
-                | (Type::Int(0), Type::Int(y)) => {
+                (Type::Unknown, Type::Int(y)) | (Type::Int(0), Type::Int(y)) => {
                     // lhsを調整する必要がある
                     if y > 1 {
                         // Type::Int(y)はポインタへのポインタであるので、型のサイズは8で調整

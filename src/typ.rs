@@ -4,20 +4,13 @@ use crate::{error, lexer::TokenList, parser::Type};
 pub fn binary_calc_type(typ1: Type, typ2: Type, token_list: &TokenList) -> Type {
     match (typ1, typ2) {
         (Type::Int(0), Type::Int(0))
-        | (Type::Int(0), Type::IntNum)
         | (Type::Int(0), Type::Unknown)
-        | (Type::IntNum, Type::Int(0))
         | (Type::Unknown, Type::Int(0)) => Type::Int(0),
         (Type::Int(x), Type::Int(0))
         | (Type::Int(0), Type::Int(x))
-        | (Type::Int(x), Type::IntNum)
-        | (Type::IntNum, Type::Int(x))
         | (Type::Int(x), Type::Unknown)
         | (Type::Unknown, Type::Int(x)) => Type::Int(x),
-        (Type::Unknown, Type::Unknown)
-        | (Type::Unknown, Type::IntNum)
-        | (Type::IntNum, Type::Unknown) => Type::Unknown,
-        (Type::IntNum, Type::IntNum) => Type::IntNum,
+        (Type::Unknown, Type::Unknown) => Type::Unknown,
         _ => {
             error::error(
                 token_list.tokens[token_list.now].input_idx,
@@ -33,8 +26,8 @@ pub fn binary_calc_type(typ1: Type, typ2: Type, token_list: &TokenList) -> Type 
 pub fn match_assign_type(typ1: Type, typ2: Type, token_list: &TokenList) {
     match typ1 {
         Type::Int(0) => match typ2 {
-            // 左辺がint型であれば、Int(0), IntNum, Unknownを右辺として受け付ける
-            Type::Int(0) | Type::IntNum | Type::Unknown => (),
+            // 左辺がint型であれば、Int(0), Unknownを右辺として受け付ける
+            Type::Int(0) | Type::Unknown => (),
             _ => {
                 error::error(
                     token_list.tokens[token_list.now].input_idx,

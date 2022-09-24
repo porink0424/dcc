@@ -12,6 +12,7 @@ pub enum TokenKind {
     For,      // for
     Return,   // リターン
     Int,
+    Sizeof, // sizeof
     EOF,
 }
 // トークン型
@@ -116,6 +117,14 @@ impl TokenList {
             // return
             if let Some(new_idx) =
                 token_list.can_tokenize(p, idx, &"return".to_string(), TokenKind::Return)
+            {
+                idx = new_idx;
+                continue;
+            }
+
+            // sizeof
+            if let Some(new_idx) =
+                token_list.can_tokenize(p, idx, &"sizeof".to_string(), TokenKind::Sizeof)
             {
                 idx = new_idx;
                 continue;
