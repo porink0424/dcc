@@ -2,6 +2,7 @@ mod codegen;
 mod error;
 mod lexer;
 mod parser;
+mod typ;
 use std::env;
 
 use crate::parser::Func;
@@ -30,7 +31,24 @@ fn main() {
         token_list = lexer::TokenList::tokenize(&args[2].chars().collect());
     } else {
         token_list = lexer::TokenList::tokenize(
-            &"int main() {int *x;*x = 3;}".chars().collect::<Vec<char>>(),
+            &"
+            
+int assign(int *x) {
+    *x = 4;
+}
+
+int main() {
+    int x;
+    int *y;
+    x = 3;
+    y = &x;
+    assign(y);
+    return x;
+}
+
+            "
+            .chars()
+            .collect::<Vec<char>>(),
         );
         // println!("{:#?}", token_list); // printing for debug
     }

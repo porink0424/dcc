@@ -1,14 +1,16 @@
 use crate::{
     error,
     lexer::{TokenKind, TokenList},
+    typ::{binary_calc_type, match_assign_type},
 };
 
 // 変数の型
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Type {
-    INT(usize), // ポインタの段数をusizeで持つ
-                // UNIT,
-                // STMT,
+    Int(usize), // ポインタの段数をusizeで持つ。例えばInt(2)はint **型を表す
+    IntNum,     // 埋め込まれた定数の数字が持つ型
+    Unknown,
+    Stmt, // 文には型がない。構文の維持のために使われるノードが持つ
 }
 
 // ローカル変数の型
@@ -87,6 +89,7 @@ pub struct Node {
     pub val: Option<isize>,    // kindがNUMの時のみ利用
     pub offset: Option<usize>, // kindがLVARの時のみ利用。ローカル変数のベースポインタからのオフセットを表す。
     pub name: Option<String>,  // kindがLVAR, APPの時のみ利用。ローカル変数, 関数の名前を表す。
+    pub typ: Type,
 }
 #[derive(Debug)]
 pub struct NodeList {
@@ -117,6 +120,7 @@ impl NodeList {
         lhs: Option<usize>,
         rhs: Option<usize>,
         name: Option<String>,
+        typ: Type,
     ) -> usize {
         let new_idx = self.nodes.len();
         self.nodes.push(Node {
@@ -127,6 +131,7 @@ impl NodeList {
             name: if let Some(_) = name { name } else { None },
             val: None,
             offset: None,
+            typ,
         });
         new_idx
     }
@@ -137,6 +142,7 @@ impl NodeList {
         input_idx: usize,
         val: Option<isize>,
         token_list: &TokenList,
+        typ: Type,
     ) -> usize {
         if let None = val {
             error::error(input_idx, "数ではありません", &token_list.input);
@@ -150,6 +156,7 @@ impl NodeList {
             val,
             offset: None,
             name: None,
+            typ,
         });
         new_idx
     }
@@ -161,6 +168,7 @@ impl NodeList {
         offset: Option<usize>,
         token_list: &TokenList,
         var_name: &String,
+        typ: Type,
     ) -> usize {
         if let None = offset {
             error::error(input_idx, "ローカル変数ではありません", &token_list.input);
@@ -174,6 +182,7 @@ impl NodeList {
             val: None,
             offset,
             name: Some(var_name.clone()),
+            typ,
         });
         new_idx
     }
@@ -198,6 +207,7 @@ impl NodeList {
                 None,
                 None,
                 None,
+                Type::Stmt,
             );
             idx = block_node_idx; // 一番上のblockノードを最終的に返す
             while !token_list.consume(TokenKind::Reserved, Some("}")) {
@@ -209,14 +219,22 @@ impl NodeList {
                     None,
                     None,
                     None,
+                    Type::Stmt,
                 );
                 self.nodes[prev_block_node_idx].lhs = Some(lhs);
                 self.nodes[prev_block_node_idx].rhs = Some(block_node_idx);
             }
         } else if token_list.consume(TokenKind::Return, None) {
             // return
-            let lhs = self.expr(token_list);
-            idx = self.append_new_node(NodeKind::Return, input_idx, Some(lhs), None, None);
+            let (lhs, _) = self.expr(token_list);
+            idx = self.append_new_node(
+                NodeKind::Return,
+                input_idx,
+                Some(lhs),
+                None,
+                None,
+                Type::Stmt,
+            );
             token_list.expect(TokenKind::Reserved, Some(";"));
         } else if token_list.consume(TokenKind::Int, None) {
             // intの変数定義
@@ -240,22 +258,29 @@ impl NodeList {
                 [token_ident_idx..(token_ident_idx + token_ident_len)]
                 .iter()
                 .collect();
-            self.lvar_list.add_new_lvar(&var_name, Type::INT(nst));
+            self.lvar_list.add_new_lvar(&var_name, Type::Int(nst));
             idx = self.append_new_node(
                 NodeKind::Int,
                 token_list.tokens[token_list.now].input_idx,
                 None,
                 None,
                 Some(var_name),
+                Type::Stmt,
             );
             token_list.expect(TokenKind::Reserved, Some(";"));
         } else if token_list.consume(TokenKind::If, None) {
             // if
             token_list.expect(TokenKind::Reserved, Some("("));
-            let flag = self.expr(token_list);
+            let (flag, _) = self.expr(token_list);
             let input_idx_inner = token_list.tokens[token_list.now].input_idx; // '('
-            let lhs =
-                self.append_new_node(NodeKind::IfFlag, input_idx_inner, Some(flag), None, None);
+            let lhs = self.append_new_node(
+                NodeKind::IfFlag,
+                input_idx_inner,
+                Some(flag),
+                None,
+                None,
+                Type::Stmt,
+            );
             token_list.expect(TokenKind::Reserved, Some(")"));
             let input_idx_inner = token_list.tokens[token_list.now].input_idx; // ')'
             let stmt_left = Some(self.stmt(token_list));
@@ -270,15 +295,30 @@ impl NodeList {
                 stmt_left,
                 stmt_right,
                 None,
+                Type::Stmt,
             );
-            idx = self.append_new_node(NodeKind::If, input_idx, Some(lhs), Some(rhs), None);
+            idx = self.append_new_node(
+                NodeKind::If,
+                input_idx,
+                Some(lhs),
+                Some(rhs),
+                None,
+                Type::Stmt,
+            );
         } else if token_list.consume(TokenKind::While, None) {
             // while
             token_list.expect(TokenKind::Reserved, Some("("));
-            let expr = self.expr(token_list);
+            let (expr, _) = self.expr(token_list);
             token_list.expect(TokenKind::Reserved, Some(")"));
             let stmt = self.stmt(token_list);
-            idx = self.append_new_node(NodeKind::While, input_idx, Some(expr), Some(stmt), None);
+            idx = self.append_new_node(
+                NodeKind::While,
+                input_idx,
+                Some(expr),
+                Some(stmt),
+                None,
+                Type::Stmt,
+            );
         } else if token_list.consume(TokenKind::For, None) {
             // for
             token_list.expect(TokenKind::Reserved, Some("("));
@@ -290,19 +330,19 @@ impl NodeList {
             let forsnd_rhs;
             // 1つ目のexpr
             if !token_list.consume(TokenKind::Reserved, Some(";")) {
-                forfst_lhs = Some(self.expr(token_list));
+                forfst_lhs = Some(self.expr(token_list).0);
                 token_list.consume(TokenKind::Reserved, Some(";"));
             }
             // 2つ目のexpr
             if !token_list.consume(TokenKind::Reserved, Some(";")) {
-                forfst_rhs = Some(self.expr(token_list));
+                forfst_rhs = Some(self.expr(token_list).0);
                 token_list.consume(TokenKind::Reserved, Some(";"));
             }
             // 2つめの';'
             let forsnd_lhs_input_idx = token_list.now;
             // 3つ目のexpr
             if !token_list.consume(TokenKind::Reserved, Some(")")) {
-                forsnd_lhs = Some(self.expr(token_list));
+                forsnd_lhs = Some(self.expr(token_list).0);
                 token_list.consume(TokenKind::Reserved, Some(")"));
             }
             forsnd_rhs = Some(self.stmt(token_list));
@@ -312,6 +352,7 @@ impl NodeList {
                 forfst_lhs,
                 forfst_rhs,
                 None,
+                Type::Stmt,
             );
             let rhs = self.append_new_node(
                 NodeKind::ForSnd,
@@ -319,142 +360,241 @@ impl NodeList {
                 forsnd_lhs,
                 forsnd_rhs,
                 None,
+                Type::Stmt,
             );
-            idx = self.append_new_node(NodeKind::For, input_idx, Some(lhs), Some(rhs), None);
+            idx = self.append_new_node(
+                NodeKind::For,
+                input_idx,
+                Some(lhs),
+                Some(rhs),
+                None,
+                Type::Stmt,
+            );
         } else {
-            idx = self.expr(token_list);
+            let res = self.expr(token_list);
+            idx = res.0;
             token_list.expect(TokenKind::Reserved, Some(";"));
         }
         idx
     }
 
+    // expr以降は、nodeのindexだけではなく、型も返す
+
     // expr       = assign
-    fn expr(&mut self, token_list: &mut TokenList) -> usize {
+    fn expr(&mut self, token_list: &mut TokenList) -> (usize, Type) {
         self.assign(token_list)
     }
 
     // assign     = equality ("=" assign)?
-    fn assign(&mut self, token_list: &mut TokenList) -> usize {
-        let mut idx = self.equality(token_list);
+    fn assign(&mut self, token_list: &mut TokenList) -> (usize, Type) {
+        let (mut idx, mut typ) = self.equality(token_list);
         if token_list.consume(TokenKind::Reserved, Some("=")) {
-            let rhs = self.assign(token_list);
+            let (rhs, ty) = self.assign(token_list);
+
+            match_assign_type(typ, ty, token_list);
+
+            typ = ty;
             let input_idx = token_list.tokens[token_list.now].input_idx;
-            idx = self.append_new_node(NodeKind::Assign, input_idx, Some(idx), Some(rhs), None);
+            idx = self.append_new_node(
+                NodeKind::Assign,
+                input_idx,
+                Some(idx),
+                Some(rhs),
+                None,
+                ty, // 代入演算子の返り値は代入した値そのもの
+            );
         }
-        idx
+        (idx, typ)
     }
 
     // equality   = relational ("==" relational | "!=" relational)*
-    fn equality(&mut self, token_list: &mut TokenList) -> usize {
-        let mut idx = self.relational(token_list);
+    fn equality(&mut self, token_list: &mut TokenList) -> (usize, Type) {
+        let (mut idx, mut typ) = self.relational(token_list);
 
         let input_idx = token_list.tokens[token_list.now].input_idx;
         loop {
             if token_list.consume(TokenKind::Reserved, Some("==")) {
-                let rhs = self.relational(token_list);
-                idx = self.append_new_node(NodeKind::Eq, input_idx, Some(idx), Some(rhs), None);
+                let (rhs, ty) = self.relational(token_list);
+                typ = ty;
+                idx = self.append_new_node(
+                    NodeKind::Eq,
+                    input_idx,
+                    Some(idx),
+                    Some(rhs),
+                    None,
+                    Type::Int(0), // 比較演算子の返り値は1or0のINT
+                );
             } else if token_list.consume(TokenKind::Reserved, Some("!=")) {
-                let rhs = self.relational(token_list);
-                idx = self.append_new_node(NodeKind::Ne, input_idx, Some(idx), Some(rhs), None);
+                let (rhs, ty) = self.relational(token_list);
+                typ = ty;
+                idx = self.append_new_node(
+                    NodeKind::Ne,
+                    input_idx,
+                    Some(idx),
+                    Some(rhs),
+                    None,
+                    Type::Int(0),
+                );
             } else {
-                return idx;
+                break;
             }
         }
+        (idx, typ)
     }
 
     // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
-    fn relational(&mut self, token_list: &mut TokenList) -> usize {
-        let mut idx = self.add(token_list);
+    fn relational(&mut self, token_list: &mut TokenList) -> (usize, Type) {
+        let (mut idx, mut typ) = self.add(token_list);
 
         let input_idx = token_list.tokens[token_list.now].input_idx;
         loop {
             if token_list.consume(TokenKind::Reserved, Some("<")) {
-                let rhs = self.add(token_list);
-                idx = self.append_new_node(NodeKind::Lt, input_idx, Some(idx), Some(rhs), None);
+                let (rhs, ty) = self.add(token_list);
+                typ = ty;
+                idx = self.append_new_node(
+                    NodeKind::Lt,
+                    input_idx,
+                    Some(idx),
+                    Some(rhs),
+                    None,
+                    Type::Int(0),
+                );
             } else if token_list.consume(TokenKind::Reserved, Some("<=")) {
-                let rhs = self.add(token_list);
-                idx = self.append_new_node(NodeKind::Le, input_idx, Some(idx), Some(rhs), None);
+                let (rhs, ty) = self.add(token_list);
+                typ = ty;
+                idx = self.append_new_node(
+                    NodeKind::Le,
+                    input_idx,
+                    Some(idx),
+                    Some(rhs),
+                    None,
+                    Type::Int(0),
+                );
             } else if token_list.consume(TokenKind::Reserved, Some(">")) {
-                let lhs = self.add(token_list);
-                idx = self.append_new_node(NodeKind::Lt, input_idx, Some(lhs), Some(idx), None);
+                let (lhs, ty) = self.add(token_list);
+                typ = ty;
+                idx = self.append_new_node(
+                    NodeKind::Lt,
+                    input_idx,
+                    Some(lhs),
+                    Some(idx),
+                    None,
+                    Type::Int(0),
+                );
             } else if token_list.consume(TokenKind::Reserved, Some(">=")) {
-                let lhs = self.add(token_list);
-                idx = self.append_new_node(NodeKind::Le, input_idx, Some(lhs), Some(idx), None);
+                let (lhs, ty) = self.add(token_list);
+                typ = ty;
+                idx = self.append_new_node(
+                    NodeKind::Le,
+                    input_idx,
+                    Some(lhs),
+                    Some(idx),
+                    None,
+                    Type::Int(0),
+                );
             } else {
-                return idx;
+                break;
             }
         }
+        (idx, typ)
     }
 
     // add        = mul ("+" mul | "-" mul)*
-    fn add(&mut self, token_list: &mut TokenList) -> usize {
-        let mut idx = self.mul(token_list);
+    fn add(&mut self, token_list: &mut TokenList) -> (usize, Type) {
+        let (mut idx, mut typ) = self.mul(token_list);
 
         let input_idx = token_list.tokens[token_list.now].input_idx;
         loop {
             if token_list.consume(TokenKind::Reserved, Some("+")) {
-                let rhs = self.mul(token_list);
-                idx = self.append_new_node(NodeKind::Add, input_idx, Some(idx), Some(rhs), None);
+                let (rhs, ty) = self.mul(token_list);
+                typ = binary_calc_type(typ, ty, token_list);
+                idx =
+                    self.append_new_node(NodeKind::Add, input_idx, Some(idx), Some(rhs), None, typ);
             } else if token_list.consume(TokenKind::Reserved, Some("-")) {
-                let rhs = self.mul(token_list);
-                idx = self.append_new_node(NodeKind::Sub, input_idx, Some(idx), Some(rhs), None);
+                let (rhs, ty) = self.mul(token_list);
+                typ = binary_calc_type(typ, ty, token_list);
+                idx =
+                    self.append_new_node(NodeKind::Sub, input_idx, Some(idx), Some(rhs), None, typ);
             } else {
-                return idx;
+                break;
             }
         }
+        (idx, typ)
     }
 
     // mul     = unary ("*" unary | "/" unary)*
-    fn mul(&mut self, token_list: &mut TokenList) -> usize {
-        let mut idx = self.unary(token_list);
+    fn mul(&mut self, token_list: &mut TokenList) -> (usize, Type) {
+        let (mut idx, mut typ) = self.unary(token_list);
 
         let input_idx = token_list.tokens[token_list.now].input_idx;
         loop {
             if token_list.consume(TokenKind::Reserved, Some("*")) {
-                let rhs = self.unary(token_list);
-                idx = self.append_new_node(NodeKind::Mul, input_idx, Some(idx), Some(rhs), None);
+                let (rhs, ty) = self.unary(token_list);
+                typ = binary_calc_type(typ, ty, token_list);
+                idx =
+                    self.append_new_node(NodeKind::Mul, input_idx, Some(idx), Some(rhs), None, typ);
             } else if token_list.consume(TokenKind::Reserved, Some("/")) {
-                let rhs = self.unary(token_list);
-                idx = self.append_new_node(NodeKind::Div, input_idx, Some(idx), Some(rhs), None);
+                let (rhs, ty) = self.unary(token_list);
+                typ = binary_calc_type(typ, ty, token_list);
+                idx =
+                    self.append_new_node(NodeKind::Div, input_idx, Some(idx), Some(rhs), None, typ);
             } else {
-                return idx;
+                break;
             }
         }
+        (idx, typ)
     }
 
     // unary   = ("+" | "-")? primary | "*" unary | "&" unary
-    fn unary(&mut self, token_list: &mut TokenList) -> usize {
+    fn unary(&mut self, token_list: &mut TokenList) -> (usize, Type) {
         if token_list.consume(TokenKind::Reserved, Some("+")) {
             self.primary(token_list)
         } else if token_list.consume(TokenKind::Reserved, Some("-")) {
             // -nは0-nに置き換える
             let input_idx = token_list.tokens[token_list.now].input_idx;
-            let zero = self.append_new_node_num(input_idx, Some(0), token_list);
-            let rhs = self.primary(token_list);
-            self.append_new_node(NodeKind::Sub, input_idx, Some(zero), Some(rhs), None)
+            let zero = self.append_new_node_num(input_idx, Some(0), token_list, Type::Int(0));
+            let (rhs, typ) = self.primary(token_list);
+            (
+                self.append_new_node(NodeKind::Sub, input_idx, Some(zero), Some(rhs), None, typ),
+                typ,
+            )
         } else if token_list.consume(TokenKind::Reserved, Some("*")) {
             // deref
             let input_idx = token_list.tokens[token_list.now].input_idx;
-            let lhs = self.unary(token_list);
-            self.append_new_node(NodeKind::Deref, input_idx, Some(lhs), None, None)
+            let (lhs, mut typ) = self.unary(token_list);
+            match typ {
+                Type::Int(x) if x >= 1 => typ = Type::Int(x - 1),
+                _ => error::error(input_idx, "dereferenceできません", &token_list.input),
+            }
+            (
+                self.append_new_node(NodeKind::Deref, input_idx, Some(lhs), None, None, typ),
+                typ,
+            )
         } else if token_list.consume(TokenKind::Reserved, Some("&")) {
             // addr
             let input_idx = token_list.tokens[token_list.now].input_idx;
-            let lhs = self.unary(token_list);
-            self.append_new_node(NodeKind::Addr, input_idx, Some(lhs), None, None)
+            let (lhs, mut typ) = self.unary(token_list);
+            match typ {
+                Type::Int(x) => typ = Type::Int(x + 1),
+                _ => error::error(input_idx, "アドレスを取得できません", &token_list.input),
+            }
+            (
+                self.append_new_node(NodeKind::Addr, input_idx, Some(lhs), None, None, typ),
+                typ,
+            )
         } else {
             self.primary(token_list)
         }
     }
 
     // primary    = num | ident ("(" expr* ")")? | "(" expr ")"
-    fn primary(&mut self, token_list: &mut TokenList) -> usize {
+    fn primary(&mut self, token_list: &mut TokenList) -> (usize, Type) {
         let input_idx = token_list.tokens[token_list.now].input_idx;
         if token_list.consume(TokenKind::Reserved, Some("(")) {
             // 次のトークンが'('なら'(expr)'
-            let idx = self.expr(token_list);
+            let (idx, typ) = self.expr(token_list);
             token_list.expect(TokenKind::Reserved, Some(")"));
-            idx
+            (idx, typ)
         } else if let (Some(token_ident), true) = token_list.consume_ident() {
             // ident
             let token_ident_idx = token_ident.input_idx;
@@ -464,27 +604,43 @@ impl NodeList {
                 .iter()
                 .collect();
             let ret;
+            let typ;
             if let (Some(lvar), true) = self.lvar_list.find_lvar(&var_name) {
                 // 今までに使われたことがあるローカル変数
-                ret = self.append_new_node_lvar(input_idx, Some(lvar.offset), token_list, &var_name)
+                typ = lvar.typ;
+                ret = self.append_new_node_lvar(
+                    input_idx,
+                    Some(lvar.offset),
+                    token_list,
+                    &var_name,
+                    typ,
+                );
             } else if token_list.consume(TokenKind::Reserved, Some("(")) {
                 // 関数呼び出し
-                ret = self.append_new_node(NodeKind::App, input_idx, None, None, Some(var_name));
+                ret = self.append_new_node(
+                    NodeKind::App,
+                    input_idx,
+                    None,
+                    None,
+                    Some(var_name),
+                    Type::Unknown,
+                );
                 let mut node = ret;
-
+                typ = Type::Unknown;
                 if token_list.consume(TokenKind::Reserved, Some(")")) {
                     // 引数がない場合はなにもしない
                 } else {
                     // 引数が1個以上ある
                     loop {
                         // 引数が続く
-                        let expr = self.expr(token_list);
+                        let (expr, typ) = self.expr(token_list);
                         let arg = self.append_new_node(
                             NodeKind::Arg,
                             token_list.tokens[token_list.now].input_idx,
                             Some(expr),
                             None,
                             None,
+                            typ,
                         );
                         self.nodes[node].rhs = Some(arg);
                         node = arg;
@@ -509,10 +665,18 @@ impl NodeList {
                 unreachable!();
             }
 
-            ret
+            (ret, typ)
         } else {
             // num
-            self.append_new_node_num(input_idx, token_list.expect_number(), token_list)
+            (
+                self.append_new_node_num(
+                    input_idx,
+                    token_list.expect_number(),
+                    token_list,
+                    Type::IntNum,
+                ),
+                Type::IntNum,
+            )
         }
     }
 }
@@ -528,6 +692,7 @@ impl Func {
     pub fn new(token_list: &mut TokenList) -> Self {
         token_list.expect(TokenKind::Int, None);
 
+        // TODO: 関数の返り値の型の利用
         let mut _nst = 0;
         while token_list.consume(TokenKind::Reserved, Some("*")) {
             _nst += 1;
@@ -550,7 +715,7 @@ impl Func {
                     nst += 1;
                 }
                 let arg_name = token_list.expect_ident();
-                args.push((arg_name, Type::INT(nst)));
+                args.push((arg_name, Type::Int(nst)));
                 if token_list.consume(TokenKind::Reserved, Some(")")) {
                     // 引数は終わり
                     break;
