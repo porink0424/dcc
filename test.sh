@@ -18,17 +18,27 @@ assert() {
 
     # dccによるコンパイル
     ./target/debug/dcc r "$input" > tmp.s
-    # アセンブル、sample.oとのリンク、実行をdocker環境でやらせる
-    docker run --rm -v $(cd $(dirname $0) && pwd):/dcc -w /dcc dcc /bin/sh -c "cc -c tmp.s; cc -o tmp tmp.o sample.o; ./tmp"
+    if [ $? = 0 ]; then
+        # コンパイル成功した場合
 
-    actual="$?"
+        # アセンブル、sample.oとのリンク、実行をdocker環境でやらせる
+        docker run --rm -v $(cd $(dirname $0) && pwd):/dcc -w /dcc dcc /bin/sh -c "cc -c tmp.s; cc -o tmp tmp.o sample.o; ./tmp"
 
-    echo -e "${YELLOW}\`\`\`$input\`\`\`${NC}"
-    if [ "$actual" = "$expected" ]; then
-        echo "=> $actual"
-        echo
+        actual="$?"
+
+        echo -e "${YELLOW}\`\`\`$input\`\`\`${NC}"
+        if [ "$actual" = "$expected" ]; then
+            echo "=> $actual"
+            echo
+        else
+            echo -e "${RED}=> $expected expected, but got $actual${NC}"
+            echo
+            exit 1
+        fi
     else
-        echo -e "${RED}=> $expected expected, but got $actual${NC}"
+    # コンパイル失敗した場合
+        echo -e "${YELLOW}\`\`\`$input\`\`\`${NC}"
+        echo -e "${RED}=> compile error"
         echo
         exit 1
     fi
@@ -142,19 +152,35 @@ assert() {
 #     return x;
 # }
 # '
-assert 4 '
-int assign(int *x) {
-    *x = 4;
-}
+# assert 4 '
+# int assign(int *x) {
+#     *x = 4;
+# }
 
-int main() {
+# int main() {
+#     int x;
+#     int *y;
+#     x = 3;
+#     y = &x;
+#     assign(y);
+#     return x;
+# }
+# '
+assert 5 '
+int main () {
     int x;
-    int *y;
-    x = 3;
-    y = &x;
-    assign(y);
-    return x;
+    int y;
+    x = 4;
+    y = 1;
+    int *z;
+    int *w;
+    z = &x;
+    w = &y;
+    int a;
+    a = *z + *w;
+    return a;
 }
 '
+
 
 echo -e "${GREEN}test finished successfully.${NC}"
