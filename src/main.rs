@@ -32,20 +32,10 @@ fn main() {
     } else {
         token_list = lexer::TokenList::tokenize(
             &"
-            
-int assign(int *x) {
-    *x = 4;
-}
-
-int main() {
-    int x;
-    int *y;
-    x = 3;
-    y = &x;
-    assign(y);
-    return x;
-}
-
+            int main() {
+                int x;
+                return sizeof(x);
+            }
             "
             .chars()
             .collect::<Vec<char>>(),

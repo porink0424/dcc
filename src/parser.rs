@@ -546,9 +546,21 @@ impl NodeList {
 
     // unary   = "sizeof" unary | ("+" | "-")? primary | "*" unary | "&" unary
     fn unary(&mut self, token_list: &mut TokenList) -> (usize, Type) {
-        if token_list.consume(TokenKind::Reserved, Some("sizeof")) {
-            //
-            self.unary(token_list)
+        if token_list.consume(TokenKind::Sizeof, None) {
+            // sizeof
+            let (_idx, typ) = self.unary(token_list);
+            let input_idx = token_list.tokens[token_list.now].input_idx;
+            match typ {
+                Type::Int(0) => (
+                    self.append_new_node_num(input_idx, Some(4), token_list, Type::Int(0)),
+                    Type::Int(0),
+                ),
+                Type::Int(x) if x > 0 => (
+                    self.append_new_node_num(input_idx, Some(8), token_list, Type::Int(0)),
+                    Type::Int(0),
+                ),
+                _ => unreachable!(),
+            }
         } else if token_list.consume(TokenKind::Reserved, Some("+")) {
             // +
             self.primary(token_list)
