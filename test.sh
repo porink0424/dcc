@@ -166,19 +166,25 @@ assert() {
 #     return x;
 # }
 # '
-assert 5 '
+assert 12 '
 int main () {
     int x;
     int y;
-    x = 4;
-    y = 1;
+    x = 82;
+    y = 12;
     int *z;
-    int *w;
     z = &x;
-    w = &y;
-    int a;
-    a = *z + *w;
-    return a;
+    z = z - 2;
+    return *z;
+}
+'
+assert 4 '
+int main() {
+    int *p;
+    alloc4(&p, 1, 2, 4, 8);
+    int *q;
+    q = p + 2;
+    return *q;
 }
 '
 

@@ -3,11 +3,17 @@ use crate::{error, lexer::TokenList, parser::Type};
 // 数値の二項演算において、2つの値の型に対する結果の型を返す
 pub fn binary_calc_type(typ1: Type, typ2: Type, token_list: &TokenList) -> Type {
     match (typ1, typ2) {
-        (Type::Int(x1), Type::Int(x2)) if x1 == x2 => Type::Int(x1),
-        (Type::Int(x), Type::Unknown)
-        | (Type::Unknown, Type::Int(x))
+        (Type::Int(0), Type::Int(0))
+        | (Type::Int(0), Type::IntNum)
+        | (Type::Int(0), Type::Unknown)
+        | (Type::IntNum, Type::Int(0))
+        | (Type::Unknown, Type::Int(0)) => Type::Int(0),
+        (Type::Int(x), Type::Int(0))
+        | (Type::Int(0), Type::Int(x))
         | (Type::Int(x), Type::IntNum)
-        | (Type::IntNum, Type::Int(x)) => Type::Int(x),
+        | (Type::IntNum, Type::Int(x))
+        | (Type::Int(x), Type::Unknown)
+        | (Type::Unknown, Type::Int(x)) => Type::Int(x),
         (Type::Unknown, Type::Unknown)
         | (Type::Unknown, Type::IntNum)
         | (Type::IntNum, Type::Unknown) => Type::Unknown,
@@ -15,7 +21,7 @@ pub fn binary_calc_type(typ1: Type, typ2: Type, token_list: &TokenList) -> Type 
         _ => {
             error::error(
                 token_list.tokens[token_list.now].input_idx,
-                "同じでない型同士での演算が含まれています",
+                "不正な型で演算が行われています",
                 &token_list.input,
             );
             unreachable!()

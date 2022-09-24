@@ -1,6 +1,6 @@
 use crate::{
     error,
-    parser::{Func, Node, NodeKind, NodeList},
+    parser::{Func, Node, NodeKind, NodeList, Type},
 };
 
 // x86-64に従った関数呼び出しの引数レジスタ
@@ -318,14 +318,24 @@ pub fn gen_from_node_list(
     gen_from_node_list(now_node.lhs.unwrap(), node_list, input, counter);
     gen_from_node_list(now_node.rhs.unwrap(), node_list, input, counter);
 
-    println!("  pop rdi");
-    println!("  pop rax");
+    println!("  pop rdi"); // rhs
+    println!("  pop rax"); // lhs
 
     match now_node.kind {
         NodeKind::Add => {
+            adjust_pointer(
+                now_node.typ,
+                node_list.nodes[now_node.lhs.unwrap()].typ,
+                node_list.nodes[now_node.rhs.unwrap()].typ,
+            );
             println!("  add rax, rdi");
         }
         NodeKind::Sub => {
+            adjust_pointer(
+                now_node.typ,
+                node_list.nodes[now_node.lhs.unwrap()].typ,
+                node_list.nodes[now_node.rhs.unwrap()].typ,
+            );
             println!("  sub rax, rdi");
         }
         NodeKind::Mul => {
@@ -361,4 +371,42 @@ pub fn gen_from_node_list(
     }
 
     println!("  push rax");
+}
+
+// ポインタの加算と減算を調整する関数
+fn adjust_pointer(now_typ: Type, lhs_typ: Type, rhs_typ: Type) {
+    match now_typ {
+        Type::Int(x) if x > 0 => {
+            // ポインタの加算と減算は、型のサイズ分動く
+            // 二項演算がポインタ型の場合、typ::binary_calc_typeにより、片方がポインタ型、もう片方がint, num, unknownのどれかであることが確定していることを利用する
+            match (lhs_typ, rhs_typ) {
+                (Type::Int(y), Type::IntNum)
+                | (Type::Int(y), Type::Unknown)
+                | (Type::Int(y), Type::Int(0)) => {
+                    // rhsを調整する必要がある
+                    if y > 1 {
+                        // Type::Int(y)はポインタへのポインタであるので、型のサイズは8で調整
+                        println!("  imul rdi, 8");
+                    } else {
+                        // Type::Int(1)はintへのポインタであるので、型のサイズは4で調整
+                        println!("  imul rdi, 4");
+                    }
+                }
+                (Type::IntNum, Type::Int(y))
+                | (Type::Unknown, Type::Int(y))
+                | (Type::Int(0), Type::Int(y)) => {
+                    // lhsを調整する必要がある
+                    if y > 1 {
+                        // Type::Int(y)はポインタへのポインタであるので、型のサイズは8で調整
+                        println!("  imul rax, 8");
+                    } else {
+                        // Type::Int(1)はintへのポインタであるので、型のサイズは4で調整
+                        println!("  imul rax, 4");
+                    }
+                }
+                _ => unreachable!(),
+            }
+        }
+        _ => (),
+    }
 }
