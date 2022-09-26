@@ -33,8 +33,11 @@ fn main() {
         token_list = lexer::TokenList::tokenize(
             &"
             int main() {
-                int x;
-                return sizeof(x);
+                int a;
+                int b;
+                a = 2;
+                b = 3;
+                a + b;
             }
             "
             .chars()

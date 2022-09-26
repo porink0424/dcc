@@ -1,5 +1,14 @@
 use crate::{error, lexer::TokenList, parser::Type};
 
+// typ型を格納するのに必要なバイト数を取得する
+pub fn get_size(typ: Type) -> usize {
+    match typ {
+        Type::Int(0) | Type::Unknown => 8, // TODO: レジスタの使い分けが非常に面倒なので、int型も一旦8bytes alignmentで実装する
+        Type::Int(x) if x > 0 => 8,
+        _ => unreachable!(),
+    }
+}
+
 // 数値の二項演算において、2つの値の型に対する結果の型を返す
 pub fn binary_calc_type(typ1: Type, typ2: Type, token_list: &TokenList) -> Type {
     match (typ1, typ2) {

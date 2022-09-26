@@ -142,7 +142,7 @@ impl TokenList {
             }
 
             // 1文字の記号
-            if "+-*/()<>=;{},&".chars().any(|c| c == p[idx]) {
+            if "+-*/()<>=;{},&[]".chars().any(|c| c == p[idx]) {
                 token_list.append_new_token(TokenKind::Reserved, idx, None, 1);
                 idx += 1;
                 continue;

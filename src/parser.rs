@@ -1,13 +1,19 @@
 use crate::{
     error,
     lexer::{TokenKind, TokenList},
-    typ::{binary_calc_type, match_assign_type},
+    typ::{binary_calc_type, get_size, match_assign_type},
 };
 
 // 変数の型
 #[derive(PartialEq, Debug, Clone, Copy)]
+pub struct IntArr {
+    size: usize,  // 配列の大きさ
+    level: usize, // ポインタの段数をusizeで持つ。
+}
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum Type {
     Int(usize), // ポインタの段数をusizeで持つ。例えばInt(2)はint **型を表す
+    IntArr(IntArr),
     Unknown,
     Stmt, // 文には型がない。構文の維持のために使われるノードが持つ
 }
@@ -22,10 +28,18 @@ pub struct LVar {
 #[derive(Debug)]
 pub struct LVarList {
     lvars: Vec<LVar>,
+    offset: usize,
 }
 impl LVarList {
     fn new() -> Self {
-        LVarList { lvars: vec![] }
+        LVarList {
+            lvars: vec![],
+            offset: 0,
+        }
+    }
+
+    pub fn offset(&self) -> usize {
+        self.offset
     }
 
     // 変数を名前で検索する。見つからなかった場合はfalseを返す
@@ -38,12 +52,13 @@ impl LVarList {
         (None, false)
     }
 
-    // 新しい変数を追加する。オフセットを返り値として返す
+    // 新しい変数を追加する
     fn add_new_lvar(&mut self, name: &String, typ: Type) {
-        let len = self.lvars.len();
+        let new_offset = self.offset + get_size(typ);
+        self.offset = new_offset;
         self.lvars.push(LVar {
             name: name.clone(),
-            offset: (len + 1) * 8,
+            offset: new_offset,
             typ,
         });
     }
@@ -189,7 +204,7 @@ impl NodeList {
     /*
     stmt    = expr ";"
             | "{" stmt* "}"
-            | "int" "*"* ident ";"
+            | "int" "*"* ident ("[" num "]")? ";"
             | "if" "(" expr ")" stmt ("else" stmt)?
             | "while" "(" expr ")" stmt
             | "for" "(" expr? ";" expr? ";" expr? ")" stmt

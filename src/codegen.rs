@@ -30,10 +30,10 @@ pub fn gen(func: &Func, input: &Vec<char>) {
     println!("");
     println!("{}:", func.name);
 
-    // 変数26個分の領域をメモリ上に確保
+    // 必要になるスタック領域をメモリ上に確保
     println!("  push rbp");
     println!("  mov rbp, rsp");
-    println!("  sub rsp, 208");
+    println!("  sub rsp, {}", func.program.lvar_list.offset() + 8); // TODO: なぜか1つ分余計にとらないと動かない...
 
     // 引数の値を、引数レジスタから取り出して書き込む
     if func.args.len() > ARGS.len() {
@@ -85,7 +85,11 @@ pub fn gen_from_node_list(
     let now_node = &node_list.nodes[now];
 
     match now_node.kind {
-        NodeKind::Int => return,
+        NodeKind::Int => {
+            // ただの変数宣言なので、なにもせずに0をpushしておく
+            println!("  push 0");
+            return;
+        }
         NodeKind::If => {
             /*
             if (A) B else C
@@ -366,7 +370,7 @@ pub fn gen_from_node_list(
             println!("  movzb rax, al");
         }
         _ => {
-            panic!("unreachable");
+            unreachable!()
         }
     }
 
