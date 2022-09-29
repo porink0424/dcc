@@ -1,23 +1,47 @@
-## dcc
+## dcc: A mini-C Compiler
 
-C compiler scratched in Rust.
+### About
 
-ref: https://www.sigbus.info/compilerbook
+dcc is a mini-C (a small subset of C) compiler scratched in Rust. This compiler compiles a mini-C program to an assembly program based on RISC-V ISA.
 
-### build
+### Build
 
 ```
 make
 ```
 
-### test
+### Test
 
 ```
 make test
 ```
 
-### clean
+### Clean
 
 ```
 make clean
 ```
+
+### Compile
+
+```
+FILL ME
+```
+
+### Run an assembly
+
+You can make an object file by some RISC-V cross-compiler such as `RISC-V GNU Compiler Toolchain` (https://github.com/riscv-collab/riscv-gnu-toolchain).
+
+```
+riscv64-unknown-elf-gcc your_asm.s -o your_obj
+```
+
+And then you can run the file by some RISC-V ISA Simulator such as `Spike` (https://github.com/riscv-software-src/riscv-isa-sim).
+
+```
+spike pk your_obj
+```
+
+### References
+
+- https://www.sigbus.info/compilerbook
