@@ -9,5 +9,6 @@ tmp*
 # IDE
 .vscode
 
-# htmlソース
+# その他自分用の書類
 compilerbook*
+asm_doc*
