@@ -1,4 +1,5 @@
 mod codegen;
+mod common;
 mod error;
 mod lexer;
 mod parser;
@@ -27,10 +28,11 @@ fn main() {
 
     // 字句解析
     let mut token_list;
+    let mut error;
     if release_mode {
-        token_list = lexer::TokenList::tokenize(&args[2].chars().collect());
+        (token_list, error) = lexer::TokenList::tokenize(&args[2].chars().collect());
     } else {
-        token_list = lexer::TokenList::tokenize(
+        (token_list, error) = lexer::TokenList::tokenize(
             &"
             int main() {
                 int a;

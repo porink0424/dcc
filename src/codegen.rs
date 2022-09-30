@@ -37,11 +37,7 @@ pub fn gen(func: &Func, input: &Vec<char>) {
 
     // 引数の値を、引数レジスタから取り出して書き込む
     if func.args.len() > ARGS.len() {
-        error::error(
-            func.program.nodes[0].input_idx,
-            "これ以上引数を増やせません",
-            input,
-        );
+        error::error();
     }
     for (i, (arg_name, _)) in func.args.iter().enumerate() {
         println!("  mov rax, rbp");
@@ -118,7 +114,7 @@ pub fn gen_from_node_list(
 
             // Aのコード出力
             if lhs.kind != NodeKind::IfFlag {
-                error::error(lhs.input_idx, "IFの判定部分が期待されています", input);
+                error::error();
             }
             gen_from_node_list(lhs.lhs.unwrap(), node_list, input, counter);
 
@@ -133,7 +129,7 @@ pub fn gen_from_node_list(
 
             // Bのコード出力
             if rhs.kind != NodeKind::IfStmt {
-                error::error(rhs.input_idx, "IFのstatementが期待されています", input);
+                error::error();
             }
             gen_from_node_list(rhs.lhs.unwrap(), node_list, input, counter);
 
@@ -282,11 +278,7 @@ pub fn gen_from_node_list(
             while let Some(x) = node {
                 // 引数レジスタの制限を超えた場合
                 if arg_idx >= ARGS.len() {
-                    error::error(
-                        node_list.nodes[x].input_idx,
-                        "これ以上引数を増やせません",
-                        input,
-                    );
+                    error::error();
                 }
 
                 // nodeがNoneでなかったので、lhsに引数がある

@@ -159,7 +159,7 @@ impl NodeList {
         typ: Type,
     ) -> usize {
         if let None = val {
-            error::error(input_idx, "数ではありません", &token_list.input);
+            error::error();
         }
         let new_idx = self.nodes.len();
         self.nodes.push(Node {
@@ -185,7 +185,7 @@ impl NodeList {
         typ: Type,
     ) -> usize {
         if let None = offset {
-            error::error(input_idx, "ローカル変数ではありません", &token_list.input);
+            error::error();
         }
         let new_idx = self.nodes.len();
         self.nodes.push(Node {
@@ -258,11 +258,7 @@ impl NodeList {
             }
             let (ident, res) = token_list.consume_ident();
             if !res {
-                error::error(
-                    input_idx,
-                    "変数の定義式を正しくパースできません",
-                    &token_list.input,
-                );
+                error::error();
                 unreachable!()
             }
             let ident = ident.unwrap();
@@ -595,7 +591,7 @@ impl NodeList {
             let (lhs, mut typ) = self.unary(token_list);
             match typ {
                 Type::Int(x) if x >= 1 => typ = Type::Int(x - 1),
-                _ => error::error(input_idx, "dereferenceできません", &token_list.input),
+                _ => error::error(),
             }
             (
                 self.append_new_node(NodeKind::Deref, input_idx, Some(lhs), None, None, typ),
@@ -607,7 +603,7 @@ impl NodeList {
             let (lhs, mut typ) = self.unary(token_list);
             match typ {
                 Type::Int(x) => typ = Type::Int(x + 1),
-                _ => error::error(input_idx, "アドレスを取得できません", &token_list.input),
+                _ => error::error(),
             }
             (
                 self.append_new_node(NodeKind::Addr, input_idx, Some(lhs), None, None, typ),
@@ -683,16 +679,12 @@ impl NodeList {
                             continue;
                         } else {
                             // ここには辿り着かないはずなのでparseが失敗している
-                            error::error(input_idx, "不正な関数呼び出しです", &token_list.input);
+                            error::error();
                         }
                     }
                 }
             } else {
-                error::error(
-                    input_idx,
-                    "定義されていない変数が使われています",
-                    &token_list.input,
-                );
+                error::error();
                 unreachable!();
             }
 
@@ -755,7 +747,7 @@ impl Func {
                     continue;
                 } else {
                     // ここには辿り着かないはずなのでparseが失敗している
-                    error::error(input_idx, "不正な関数定義です", &token_list.input);
+                    error::error();
                 }
             }
         }
