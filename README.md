@@ -4,6 +4,34 @@
 
 dcc is a mini-C (a small subset of C) compiler scratched in Rust. This compiler compiles a mini-C program to an assembly program based on [RISC-V ISA](https://riscv.org/technical/specifications/).
 
+### mini-C Grammer
+
+This compiler parses a program by LL(1).
+
+```
+// type definition
+type       = ( "int" | "char" ) "*"*
+
+// satement definition
+program    = func*
+func       = type ident "(" (type ident)* ")" "{" stmt* "}"
+stmt       = expr ";"
+            | "{" stmt* "}"
+            | type ident ("[" num "]")? ";"
+            | "if" "(" expr ")" stmt ("else" stmt)?
+            | "while" "(" expr ")" stmt
+            | "for" "(" expr? ";" expr? ";" expr? ")" stmt
+            | "return" expr ";"
+expr       = assign
+assign     = equality ("=" assign)?
+equality   = relational ("==" relational | "!=" relational)*
+relational = add ("<" add | "<=" add | ">" add | ">=" add)*
+add        = mul ("+" mul | "-" mul)*
+mul        = unary ("*" unary | "/" unary)*
+unary      = "sizeof" unary | ("+" | "-")? primary | "*" unary | "&" unary
+primary    = num | ident ("(" expr* ")")? | "(" expr ")"
+```
+
 ### Build
 
 ```
