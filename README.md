@@ -10,14 +10,14 @@ This compiler parses a program by LL(1).
 
 ```
 // type definition
-type       = ( "int" | "char" ) "*"*
+ty       = ( "int" | "char" ) "*"*
 
 // satement definition
 program    = func*
-func       = type ident "(" (type ident)* ")" "{" stmt* "}"
+func       = type ident "(" (ty ident)* ")" "{" stmt* "}"
 stmt       = expr ";"
             | "{" stmt* "}"
-            | type ident ("[" num "]")? ";"
+            | ty ident ("[" num "]")? ";"
             | "if" "(" expr ")" stmt ("else" stmt)?
             | "while" "(" expr ")" stmt
             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
