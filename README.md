@@ -1,10 +1,10 @@
-## dcc: A mini-C Compiler
+# dcc: A mini-C Compiler
 
-### About
+## About
 
 dcc is a mini-C (a small subset of C) compiler scratched in Rust. This compiler compiles a mini-C program to an assembly program based on [RISC-V ISA](https://riscv.org/technical/specifications/).
 
-### mini-C Grammer
+## mini-C Grammer
 
 This compiler parses a program by LL(1).
 
@@ -32,25 +32,25 @@ unary      = "sizeof" unary | ("+" | "-")? primary | "*" unary | "&" unary
 primary    = num | ident ("(" expr* ")")? | "(" expr ")"
 ```
 
-### Build
+## Build
 
 ```
 make
 ```
 
-### Clean
+## Clean
 
 ```
 make clean
 ```
 
-### Compile
+## Compile
 
 ```
 FILL ME
 ```
 
-### Run an assembly
+## Run an assembly
 
 You can make an object file by some RISC-V cross-compiler such as [RISC-V GNU Compiler Toolchain](https://github.com/riscv-collab/riscv-gnu-toolchain).
 
@@ -64,6 +64,6 @@ And then you can run the file by some RISC-V ISA Simulator such as [Spike](https
 spike pk your_obj
 ```
 
-### References
+## References
 
 - https://www.sigbus.info/compilerbook
