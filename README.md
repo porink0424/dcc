@@ -16,8 +16,8 @@ ty       = ( "int" | "char" ) "*"*
 program    = func*
 func       = type ident "(" (ty ident)* ")" "{" stmt* "}"
 stmt       = expr ";"
-            | "{" stmt* "}"
             | ty ident ("[" num "]")? ";"
+            | "{" stmt* "}"
             | "if" "(" expr ")" stmt ("else" stmt)?
             | "while" "(" expr ")" stmt
             | "for" "(" expr? ";" expr? ";" expr? ")" stmt
